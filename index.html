@@ -299,22 +299,55 @@
         const overwrite = $("overwriteLatest").checked;
 
         if (overwrite) {
-          const latest = await getLatestForUser(user.id);
+  const latest = await getLatestForUser(user.id);
 
-          if (latest) {
-            const { data, error } = await withTimeout(
-              sb.from(TABLE_NAME).update({ rows: payload }).eq("id", latest.id).select("id"),
-              15000,
-              "Update latest"
-            );
-            if (error) throw error;
-            if (!data || data.length === 0) {
-              throw new Error(
-                "Overwrite did not update anything. This usually means Row Level Security is blocking UPDATE. Add an UPDATE policy on public.grid_uploads: USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id)."
-              );
-            }
-            showOk("✅ Saved (overwrote your latest record).");
-          } else {
+  if (latest?.id) {
+    // Preferred: UPDATE the latest row (requires an UPDATE RLS policy)
+    let upd = null;
+    let updErr = null;
+    ({ data: upd, error: updErr } = await sb
+      .from(TABLE_NAME)
+      .update({ rows: payload })
+      .eq("id", latest.id)
+      .eq("user_id", user.id)
+      .select("id")
+      .single());
+
+    if (updErr) {
+      // Fallback: DELETE + INSERT (works if you have SELECT+DELETE+INSERT policies)
+      const { error: delErr } = await sb
+        .from(TABLE_NAME)
+        .delete()
+        .eq("id", latest.id)
+        .eq("user_id", user.id);
+
+      if (delErr) {
+        throw new Error(
+          "Overwrite failed. UPDATE was blocked and DELETE also failed. " +
+            "To fix, add an UPDATE policy on public.grid_uploads (USING auth.uid() = user_id, WITH CHECK auth.uid() = user_id) " +
+            "or ensure your DELETE policy allows deleting own uploads. Details: " +
+            JSON.stringify({ updErr, delErr })
+        );
+      }
+
+      const { error: insErr } = await sb
+        .from(TABLE_NAME)
+        .insert({ user_id: user.id, rows: payload });
+
+      if (insErr) throw insErr;
+
+      showOk("✅ Saved (overwrote by delete + insert).");
+    } else {
+      showOk("✅ Saved (overwrote your latest record).");
+    }
+  } else {
+    const { error: insertErr } = await sb
+      .from(TABLE_NAME)
+      .insert({ user_id: user.id, rows: payload });
+    if (insertErr) throw insertErr;
+    showOk("✅ Saved (first upload for this user).");
+  }
+} else {
             const { data, error } = await withTimeout(
               sb.from(TABLE_NAME).insert({ user_id: user.id, rows: payload }).select("id"),
               15000,
