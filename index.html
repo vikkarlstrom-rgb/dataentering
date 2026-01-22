@@ -288,34 +288,41 @@
     });
 
     $("saveDb").addEventListener("click", async () => {
+      clearMsg();
+      setStatus("Saving…");
+
       try {
-        setStatus("Saving to Supabase...");
-        const user = await requireAuth();
-        const payload = hot.getData(); // 2D array
-        const overwrite = $("overwriteLatest")?.checked;
+        const user = await requireUser();
+        const payload = gridTo2dArray();
 
-        if (overwrite) {
-          // Delete ALL previous uploads for this user, then insert a fresh one.
-          // (This keeps only one "latest" record per user.)
-          const { data: deleted, error: delError } = await withTimeout(
-            sb.from(TABLE_NAME).delete().eq("user_id", user.id).select("id"),
-            15000,
-            "Delete previous"
-          );
-          if (delError) throw delError;
+        if ($("overwriteLatest").checked) {
+          const latest = await getLatestForUser(user.id);
+          if (latest?.id) {
+            // Delete the latest row, then insert a new one (overwrite = replace your latest upload)
+            const { error: delError } = await withTimeout(
+              sb.from(TABLE_NAME).delete().eq("id", latest.id),
+              15000,
+              "Delete latest"
+            );
+            if (delError) throw delError;
 
-          const deletedCount = deleted?.length || 0;
+            const { error: insError } = await withTimeout(
+              sb.from(TABLE_NAME).insert({ user_id: user.id, rows: payload }),
+              15000,
+              "Insert"
+            );
+            if (insError) throw insError;
 
-          const { error: insError } = await withTimeout(
-            sb.from(TABLE_NAME).insert({ user_id: user.id, rows: payload }),
-            15000,
-            "Insert"
-          );
-          if (insError) throw insError;
-
-          showOk(
-            `✅ Saved (overwrote — deleted ${deletedCount} previous record${deletedCount === 1 ? "" : "s"} then inserted a new one)`
-          );
+            showOk(`✅ Overwrite OK (deleted ${latest.id} and saved a new record)`);
+          } else {
+            const { error } = await withTimeout(
+              sb.from(TABLE_NAME).insert({ user_id: user.id, rows: payload }),
+              15000,
+              "Insert"
+            );
+            if (error) throw error;
+            showOk("✅ Saved (no previous record existed, so inserted a new one)");
+          }
         } else {
           const { error } = await withTimeout(
             sb.from(TABLE_NAME).insert({ user_id: user.id, rows: payload }),
