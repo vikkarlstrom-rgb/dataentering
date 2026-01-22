@@ -57,6 +57,16 @@
   <div class="toolbar">
     <button type="button" id="downloadCsv">Download CSV</button>
     <button type="button" id="saveDb">Save to Supabase</button>
+    <label style="display:flex; align-items:center; gap:8px; margin-left:8px;">
+      Dataset
+      <input id="datasetName" list="datasetList" value="Reporting_structure" placeholder="e.g. Reporting_structure" />
+      <datalist id="datasetList">
+        <option value="Reporting_structure"></option>
+        <option value="Financial_data"></option>
+        <option value="HR_data"></option>
+      </datalist>
+    </label>
+
 
     <label style="display:flex; align-items:center; gap:8px; margin-left:8px;">
       <input type="checkbox" id="overwriteLatest" />
@@ -85,6 +95,14 @@
     const SUPABASE_URL = "https://bfvidvslxcofuaoylhli.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_mLe7GSD1JP-1tYK1k09ZQg_mLydwaON"; // <-- keep your real anon key here
     const TABLE_NAME = "grid_uploads"; // must match your SQL table name
+const DATASET_COL = "name"; // new column to distinguish datasets (Reporting_structure, Financial_data, HR_data, etc.)
+
+function getDatasetName() {
+  const el = document.getElementById("datasetName");
+  const v = (el?.value || "").trim();
+  return v || "default";
+}
+
 
     // If you pasted the key before, make sure you keep it here exactly (no quotes missing, no spaces).
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -251,7 +269,7 @@
       return user;
     }
 
-    async function getLatestForUser(userId) {
+    async function getLatestForUser(userId, datasetName) {
       const { data, error } = await withTimeout(
         sb.from(TABLE_NAME)
           .select("id, created_at, rows")
@@ -296,26 +314,39 @@
         const payload = gridTo2dArray();
 
         if ($("overwriteLatest").checked) {
-          const latest = await getLatestForUser(user.id);
-          if (latest?.id) {
-            // Delete the latest row, then insert a new one (overwrite = replace your latest upload)
-            const { error: delError } = await withTimeout(
-              sb.from(TABLE_NAME).delete().eq("id", latest.id),
-              15000,
-              "Delete latest"
-            );
-            if (delError) throw delError;
+          const datasetName = getDatasetName();
 
-            const { error: insError } = await withTimeout(
-              sb.from(TABLE_NAME).insert({ user_id: user.id, rows: payload }),
-              15000,
-              "Insert"
-            );
-            if (insError) throw insError;
+          // Delete ALL prior records for this user + dataset, then insert fresh.
+          // (Simple & reliable, and works well with your existing INSERT/DELETE RLS policies.)
+          const { error: delErr } = await withTimeout(
+            sb.from(TABLE_NAME)
+              .delete()
+              .eq("user_id", user.id)
+              .eq(DATASET_COL, datasetName),
+            15000,
+            "Delete existing (overwrite)"
+          );
+          if (delErr) throw delErr;
 
-            showOk(`✅ Overwrite OK (deleted ${latest.id} and saved a new record)`);
-          } else {
-            const { error } = await withTimeout(
+          const { error: insErr } = await withTimeout(
+            sb.from(TABLE_NAME).insert({ user_id: user.id, [DATASET_COL]: datasetName, rows: payload }),
+            15000,
+            "Insert (overwrite)"
+          );
+          if (insErr) throw insErr;
+
+          showOk(`✅ Overwrote "${datasetName}".`);
+        } else {
+          const datasetName = getDatasetName();
+          const { error } = await withTimeout(
+            sb.from(TABLE_NAME).insert({ user_id: user.id, [DATASET_COL]: datasetName, rows: payload }),
+            15000,
+            "Insert"
+          );
+          if (error) throw error;
+          showOk(`✅ Saved to "${datasetName}".`);
+        }
+= await withTimeout(
               sb.from(TABLE_NAME).insert({ user_id: user.id, rows: payload }),
               15000,
               "Insert"
@@ -344,7 +375,7 @@
       setStatus("Loading…");
       try {
         const user = await requireUser();
-        const latest = await getLatestForUser(user.id);
+        const latest = await getLatestForUser(user.id, getDatasetName());
         if (!latest) throw new Error("No saved data found for your user yet.");
 
         hot.loadData(latest.rows || Handsontable.helper.createEmptySpreadsheetData(20, 12));
@@ -361,7 +392,7 @@
       setStatus("Copying…");
       try {
         const user = await requireUser();
-        const latest = await getLatestForUser(user.id);
+        const latest = await getLatestForUser(user.id, getDatasetName());
         if (!latest) throw new Error("No saved data found for your user yet.");
 
         const text = JSON.stringify(latest.rows ?? null, null, 2);
