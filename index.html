@@ -125,7 +125,7 @@ const errorBox = document.getElementById("errorBox");
 function clearMsgs() {
   okBox.style.display = "none";
   okBox.textContent = "";
-  clearMsgs();
+  errorBox.style.display = "none";
   errorBox.textContent = "";
 }
 
@@ -152,73 +152,108 @@ function showError(msg, detail) {
     const whoEl = document.getElementById("whoami");
     const signOutBtn = document.getElementById("signOutBtn");
     const emailEl = document.getElementById("email");
-    const passEl = document.getElementById("password");
+    const passEl  = document.getElementById("password");
+    const whoEl   = document.getElementById("whoami");
+    const signUpBtn  = document.getElementById("signUpBtn");
+    const signInBtn  = document.getElementById("signInBtn");
+    const signOutBtn = document.getElementById("signOutBtn");
 
-    function setStatus(msg) { statusEl.textContent = msg || ""; }
-
-    function isCellEmpty(v) {
-      return v === null || v === undefined || String(v).trim() === "";
+    function getCreds() {
+      const email = (emailEl.value || "").trim();
+      const password = passEl.value || "";
+      return { email, password };
     }
 
-    function trimData(data) {
-      // Trim trailing empty rows
-      let lastNonEmptyRow = -1;
-      for (let r = 0; r < data.length; r++) {
-        if (data[r].some(cell => !isCellEmpty(cell))) lastNonEmptyRow = r;
+    async function refreshUserUI(sessionOverride) {
+      const { data: s } = await sbClient.auth.getSession();
+      const session = sessionOverride ?? s.session;
+
+      if (session?.user) {
+        whoEl.textContent = `Signed in: ${session.user.email}`;
+        whoEl.style.background = "#f3fff6";
+        whoEl.style.borderColor = "#7de1a7";
+        signOutBtn.style.display = "inline-block";
+      } else {
+        whoEl.textContent = "Not signed in";
+        whoEl.style.background = "#f3f4f6";
+        whoEl.style.borderColor = "#ddd";
+        signOutBtn.style.display = "none";
       }
-      const rowsTrimmed = lastNonEmptyRow >= 0 ? data.slice(0, lastNonEmptyRow + 1) : [];
+    }
 
-      // Trim trailing empty columns
-      let lastNonEmptyCol = -1;
-      for (const row of rowsTrimmed) {
-        for (let c = 0; c < row.length; c++) {
-          if (!isCellEmpty(row[c])) lastNonEmptyCol = Math.max(lastNonEmptyCol, c);
-        }
+    sbClient.auth.onAuthStateChange((event, session) => {
+      // Keep UI in sync with Supabase session changes
+      refreshUserUI(session);
+
+      if (event === "SIGNED_IN" && session?.user) {
+        showOk(`✅ Logged in as ${session.user.email}`);
+        setStatus("");
       }
-      return rowsTrimmed.map(row => row.slice(0, lastNonEmptyCol + 1));
-    }
-
-    function toCsv(data) {
-      const escape = (value) => {
-        const s = value === null || value === undefined ? "" : String(value);
-        if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-        return s;
-      };
-      return data.map(row => row.map(escape).join(",")).join("\r\n");
-    }
-
-    function download(filename, text) {
-      const blob = new Blob([text], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    }
-
-    // ========================
-    // 4) AUTH UI
-    // ========================
-    async function refreshUserUI() {
-      const { data: { session } } = await sbClient.auth.getSession();
-      const user = session?.user;
-      whoEl.textContent = user ? `Signed in as ${user.email}` : "Not signed in";
-      signOutBtn.style.display = user ? "inline-block" : "none";
-    }
-
-    document.getElementById("signUpBtn").addEventListener("click", async () => {
-      setStatus("");
-      const email = emailEl.value.trim();
-      const password = passEl.value;
-      if (!email || !password) return alert("Enter email + password");
-      const { error } = await sbClient.auth.signUp({ email, password });
-      if (error) return alert(error.message);
-      alert("Signed up! If 'Confirm email' is enabled, check your inbox to confirm before signing in.");
-      refreshUserUI();
+      if (event === "SIGNED_OUT") {
+        showOk("Signed out.");
+        setStatus("");
+      }
     });
+
+    signUpBtn.addEventListener("click", async () => {
+      clearMsgs();
+      const { email, password } = getCreds();
+      if (!email || !password) return showError("Missing email or password.");
+
+      setBusy(true, "Signing up…");
+      try {
+        const { data, error } = await sbClient.auth.signUp({ email, password });
+        if (error) throw error;
+
+        // If email confirmation is enabled, session may be null until they confirm.
+        if (data?.session) {
+          showOk(`✅ Signed up & logged in as ${data.user?.email || email}`);
+        } else {
+          showOk("✅ Sign-up OK. If email confirmation is enabled, check your inbox, then sign in.");
+        }
+        await refreshUserUI();
+      } catch (e) {
+        showError("Sign-up failed.", e?.message || String(e));
+      } finally {
+        setBusy(false, "");
+      }
+    });
+
+    signInBtn.addEventListener("click", async () => {
+      clearMsgs();
+      const { email, password } = getCreds();
+      if (!email || !password) return showError("Missing email or password.");
+
+      setBusy(true, "Signing in…");
+      try {
+        const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+
+        showOk(`✅ Logged in as ${data.user?.email || email}`);
+        await refreshUserUI();
+      } catch (e) {
+        showError("Sign-in failed.", e?.message || String(e));
+      } finally {
+        setBusy(false, "");
+      }
+    });
+
+    signOutBtn.addEventListener("click", async () => {
+      clearMsgs();
+      setBusy(true, "Signing out…");
+      try {
+        const { error } = await sbClient.auth.signOut();
+        if (error) throw error;
+        await refreshUserUI();
+      } catch (e) {
+        showError("Sign-out failed.", e?.message || String(e));
+      } finally {
+        setBusy(false, "");
+      }
+    });
+
+    refreshUserUI();
+});
 
     document.getElementById("signInBtn").addEventListener("click", async () => {
       setStatus("");
@@ -314,8 +349,10 @@ document.getElementById("loadDb").addEventListener("click", async () => {
       const { data, error } = await sbClient
         .from(TABLE_NAME)
         .select("rows, created_at")
+        .eq("user_id", session.user.id)
         .order("created_at", { ascending: false })
-        .limit(1);
+        .limit(1)
+        .maybeSingle();
 
       if (error) {
         setStatus("");
