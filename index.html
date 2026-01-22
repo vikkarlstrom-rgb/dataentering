@@ -9,6 +9,9 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@14.5.0/dist/handsontable.full.min.css">
   <script src="https://cdn.jsdelivr.net/npm/handsontable@14.5.0/dist/handsontable.full.min.js"></script>
 
+  <!-- Supabase JS (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 16px; }
     h2 { margin-top: 0; }
@@ -56,23 +59,20 @@
 
   <div id="grid"></div>
 
-  <!-- Main app logic as an ES module (needed for supabase-js v2 via CDN) -->
-  <script type="module">
-    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-
+  <script>
     // ========================
-    // 1) CONFIG
+    // 1) CONFIG (already filled)
     // ========================
     const SUPABASE_URL = "https://bfvidvslxcofuaoylhli.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_mLe7GSD1JP-1tYK1k09ZQg_mLydwaON";
     const TABLE_NAME = "grid_uploads"; // must match your SQL table name
 
-    const sbClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // ========================
     // 2) GRID SETUP
     // ========================
-    const container = document.getElementById("grid");
+    const container = document.getElementById('grid');
 
     // 20 rows x 10 columns initial blank data
     const initialRows = 20;
@@ -99,18 +99,13 @@
       minSpareRows: 1,
       minSpareCols: 0,
 
-      licenseKey: "non-commercial-and-evaluation"
+      licenseKey: 'non-commercial-and-evaluation'
     });
 
     // ========================
     // 3) HELPERS
     // ========================
     const statusEl = document.getElementById("status");
-    const whoEl = document.getElementById("whoami");
-    const signOutBtn = document.getElementById("signOutBtn");
-    const emailEl = document.getElementById("email");
-    const passEl = document.getElementById("password");
-
     function setStatus(msg) { statusEl.textContent = msg || ""; }
 
     function isCellEmpty(v) {
@@ -159,6 +154,11 @@
     // ========================
     // 4) AUTH UI
     // ========================
+    const emailEl = document.getElementById("email");
+    const passEl = document.getElementById("password");
+    const whoEl = document.getElementById("whoami");
+    const signOutBtn = document.getElementById("signOutBtn");
+
     async function refreshUserUI() {
       const { data: { session } } = await sbClient.auth.getSession();
       const user = session?.user;
@@ -173,7 +173,7 @@
       if (!email || !password) return alert("Enter email + password");
       const { error } = await sbClient.auth.signUp({ email, password });
       if (error) return alert(error.message);
-      alert("Signed up! If 'Confirm email' is enabled, check your inbox to confirm before signing in.");
+      alert("Signed up! You may need to confirm email depending on your Supabase settings.");
       refreshUserUI();
     });
 
