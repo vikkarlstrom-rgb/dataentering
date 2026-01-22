@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Excel Paste Grid → CSV + Supabase Save</title>
+  <title>Excel Paste Grid + Supabase Save</title>
 
   <!-- Handsontable Community Edition (CDN) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@14.5.0/dist/handsontable.full.min.css">
@@ -14,24 +14,23 @@
     h2 { margin-top: 0; }
     .row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin: 10px 0; }
     .toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin: 10px 0 12px; }
-    button { padding: 8px 12px; cursor: pointer; }
-    .warn { background:#fff7ed; border: 1px solid #fdba74; }
-    .checkbox { display:inline-flex; align-items:center; gap:8px; margin-left: 6px; font-size: 14px; color:#333; }
-    .checkbox input { transform: translateY(1px); }
-    input { padding: 8px 10px; min-width: 220px; }
-    .label { font-size: 12px; color:#555; margin-bottom: 4px; }
-    .hint { color: #555; font-size: 14px; }
-    #grid { width: 100%; max-width: 1200px; }
-    #status { color:#444; font-size: 14px; margin-left: 6px; }
+    button { padding: 8px 12px; cursor:pointer; }
+    input { padding: 8px 10px; min-width: 240px; }
+    .label { font-size:12px; color:#555; margin-bottom:4px; }
+    .hint { color:#555; font-size:14px; }
+    #project { font-size: 12px; color:#666; }
+    #grid { width:100%; max-width: 1200px; }
     .pill { padding: 2px 8px; border: 1px solid #ddd; border-radius: 999px; font-size: 12px; color:#333; }
-
-    .ok { margin-top: 10px; padding: 10px 12px; border: 1px solid #b7e4c7; background: #d8f3dc; color: #1b4332; border-radius: 8px; display:none; max-width: 1200px; }
-    .error { margin-top: 10px; padding: 10px 12px; border: 1px solid #f3c0c0; background: #fff4f4; color: #7a1f1f; border-radius: 8px; display:none; max-width: 1200px; }
-
+    .ok { margin-top:10px; padding: 10px 12px; border: 1px solid #d6f0dd; background:#f2fbf5; color:#0b6b2e; border-radius: 8px; display:none; max-width: 1200px; }
+    .err { margin-top:10px; padding: 10px 12px; border: 1px solid #f3c0c0; background:#fff4f4; color:#7a1f1f; border-radius: 8px; display:none; max-width: 1200px; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+    .small { font-size: 12px; color:#555; }
   </style>
 </head>
+
 <body>
   <h2>Paste from Excel into the grid</h2>
+  <div id="project"></div>
 
   <!-- Auth -->
   <div class="row">
@@ -44,379 +43,358 @@
       <input id="password" type="password" placeholder="password" autocomplete="current-password" />
     </div>
 
-    <button id="signUpBtn">Sign up</button>
-    <button id="signInBtn">Sign in</button>
-    <button id="signOutBtn" style="display:none;">Sign out</button>
+    <button type="button" id="signUpBtn">Sign up</button>
+    <button type="button" id="signInBtn">Sign in</button>
+    <button type="button" id="signOutBtn" style="display:none;">Sign out</button>
+
+    <button type="button" id="testConnBtn">Test Supabase connection</button>
 
     <span class="pill" id="whoami">Not signed in</span>
+    <span class="small" id="status"></span>
   </div>
 
   <!-- Actions -->
   <div class="toolbar">
-    <button id="downloadCsv">Download CSV</button>
-    <button id="saveDb">Save to Supabase</button>
-    <button id="loadDb">Load my latest</button>
-    <button id="clearGrid">Clear grid</button>
+    <button type="button" id="downloadCsv">Download CSV</button>
+    <button type="button" id="saveDb">Save to Supabase</button>
+
+    <label style="display:flex; align-items:center; gap:8px; margin-left:8px;">
+      <input type="checkbox" id="overwriteLatest" />
+      Overwrite my latest
+    </label>
+
+    <button type="button" id="loadDb">Load my latest</button>
+    <button type="button" id="copyJson">Copy my latest JSON</button>
+    <button type="button" id="clearGrid">Clear grid</button>
+
     <span class="hint">Tip: click a cell, then paste (Ctrl/Cmd+V). You can paste many cells at once.</span>
-    <span id="status"></span>
   </div>
 
   <div id="grid"></div>
 
   <div id="okBox" class="ok"></div>
-  <div id="errorBox" class="error"></div>
+  <div id="errBox" class="err"></div>
 
-  <!-- Main app logic as an ES module (needed for supabase-js v2 via CDN) -->
+  <!-- Main app logic as ES module (supabase-js v2 via CDN ESM) -->
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-    // ========================
-    // 1) CONFIG (already filled)
-    // ========================
+    // =========================
+    // 1) CONFIG (YOUR PROJECT)
+    // =========================
     const SUPABASE_URL = "https://bfvidvslxcofuaoylhli.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_mLe7GSD1JP-1tYK1k09ZQg_mLydwaON";
+    const SUPABASE_ANON_KEY = "sb_publishable_mLe7GSD1JP-1tYK1k09ZQg_mLydwaON"; // <-- keep your real anon key here
     const TABLE_NAME = "grid_uploads"; // must match your SQL table name
 
-    const sbClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
-    });
+    // If you pasted the key before, make sure you keep it here exactly (no quotes missing, no spaces).
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // ========================
-    // 2) GRID SETUP
-    // ========================
-    const container = document.getElementById("grid");
+    // =========================
+    // 2) UI HELPERS
+    // =========================
+    const $ = (id) => document.getElementById(id);
+    const okBox = $("okBox");
+    const errBox = $("errBox");
+    const statusEl = $("status");
 
-    // 20 rows x 10 columns initial blank data
-    const initialRows = 20;
-    const initialCols = 10;
-    const initialData = Array.from({ length: initialRows }, () => Array(initialCols).fill(""));
+    $("project").innerHTML = `Project: <code>${SUPABASE_URL}</code> · Table: <code>${TABLE_NAME}</code>`;
 
+    function setStatus(msg) {
+      statusEl.textContent = msg || "";
+    }
+    function showOk(msg) {
+      okBox.style.display = "block";
+      okBox.textContent = msg;
+      errBox.style.display = "none";
+    }
+    function showErr(msg) {
+      errBox.style.display = "block";
+      errBox.textContent = msg;
+      okBox.style.display = "none";
+    }
+    function clearMsg() {
+      okBox.style.display = "none";
+      errBox.style.display = "none";
+    }
+
+    // A simple timeout wrapper (no AbortController, so no AbortError noise)
+    function withTimeout(promise, ms, label = "Request") {
+      let timer;
+      const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+      });
+      return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+    }
+
+    // =========================
+    // 3) GRID
+    // =========================
+    const container = $("grid");
     const hot = new Handsontable(container, {
-      data: initialData,
+      data: Handsontable.helper.createEmptySpreadsheetData(20, 12),
       rowHeaders: true,
       colHeaders: true,
       contextMenu: true,
       dropdownMenu: true,
-      manualRowResize: true,
-      manualColumnResize: true,
-      manualRowMove: true,
-      manualColumnMove: true,
-
-      stretchH: "all",
-      autoWrapRow: true,
-      autoWrapCol: true,
-
-      allowInsertRow: true,
-      allowInsertColumn: true,
-      minSpareRows: 1,
-      minSpareCols: 0,
-
+      filters: true,
       licenseKey: "non-commercial-and-evaluation"
     });
 
-    // ========================
-    // 3) HELPERS
-    // ========================
-    const statusEl = document.getElementById("status");
-
-const okBox = document.getElementById("okBox");
-const errorBox = document.getElementById("errorBox");
-
-function clearMsgs() {
-  okBox.style.display = "none";
-  okBox.textContent = "";
-  errorBox.style.display = "none";
-  errorBox.textContent = "";
-}
-
-function showOk(msg) {
-  clearMsgs();
-  okBox.textContent = msg;
-  okBox.style.display = "block";
-  // auto-hide after a bit
-  window.setTimeout(() => {
-    if (okBox.textContent === msg) {
-      okBox.style.display = "none";
-    }
-  }, 8000);
-}
-
-let authBusy = false;
-
-function showError(msg, detail) {
-  clearMsgs();
-  errorBox.textContent = detail ? `${msg} ${detail}` : msg;
-  errorBox.style.display = "block";
-}
-
-    const whoEl = document.getElementById("whoami");
-    const signOutBtn = document.getElementById("signOutBtn");
-    const emailEl = document.getElementById("email");
-    const passEl  = document.getElementById("password");
-    const whoEl   = document.getElementById("whoami");
-    const signUpBtn  = document.getElementById("signUpBtn");
-    const signInBtn  = document.getElementById("signInBtn");
-    const signOutBtn = document.getElementById("signOutBtn");
-
-    function getCreds() {
-      const email = (emailEl.value || "").trim();
-      const password = passEl.value || "";
-      return { email, password };
+    function gridTo2dArray() {
+      // Trim trailing completely empty rows to keep JSON smaller
+      const data = hot.getData();
+      let lastNonEmpty = data.length - 1;
+      while (lastNonEmpty >= 0) {
+        const row = data[lastNonEmpty];
+        if (row && row.some((v) => String(v ?? "").trim() !== "")) break;
+        lastNonEmpty--;
+      }
+      return data.slice(0, Math.max(1, lastNonEmpty + 1));
     }
 
-    async function refreshUserUI(sessionOverride) {
-      const { data: s } = await sbClient.auth.getSession();
-      const session = sessionOverride ?? s.session;
-
-      if (session?.user) {
-        whoEl.textContent = `Signed in: ${session.user.email}`;
-        whoEl.style.background = "#f3fff6";
-        whoEl.style.borderColor = "#7de1a7";
-        signOutBtn.style.display = "inline-block";
+    // =========================
+    // 4) AUTH
+    // =========================
+    async function refreshAuthUI() {
+      const { data: { user } } = await sb.auth.getUser();
+      if (user) {
+        $("whoami").textContent = user.email || user.id;
+        $("signOutBtn").style.display = "inline-block";
       } else {
-        whoEl.textContent = "Not signed in";
-        whoEl.style.background = "#f3f4f6";
-        whoEl.style.borderColor = "#ddd";
-        signOutBtn.style.display = "none";
+        $("whoami").textContent = "Not signed in";
+        $("signOutBtn").style.display = "none";
       }
     }
 
-    sbClient.auth.onAuthStateChange((event, session) => {
-      // Keep UI in sync with Supabase session changes
-      refreshUserUI(session);
-
-      if (event === "SIGNED_IN" && session?.user) {
-        showOk(`✅ Logged in as ${session.user.email}`);
-        setStatus("");
+    sb.auth.onAuthStateChange((_event, session) => {
+      // Keep UI in sync and clear “Signing in…” if anything changes.
+      setStatus("");
+      if (session?.user) {
+        showOk(`✅ Logged in as ${session.user.email || session.user.id}`);
       }
-      if (event === "SIGNED_OUT") {
-        showOk("Signed out.");
-        setStatus("");
-      }
+      refreshAuthUI().catch(() => {});
     });
 
-    signUpBtn.addEventListener("click", async () => {
-      clearMsgs();
-      const { email, password } = getCreds();
-      if (!email || !password) return showError("Missing email or password.");
+    $("signUpBtn").addEventListener("click", async () => {
+      clearMsg();
+      setStatus("Signing up…");
+      const email = $("email").value.trim();
+      const password = $("password").value;
 
-      setBusy(true, "Signing up…");
       try {
-        const { data, error } = await sbClient.auth.signUp({ email, password });
+        const { data, error } = await withTimeout(
+          sb.auth.signUp({ email, password }),
+          15000,
+          "Sign up"
+        );
         if (error) throw error;
 
-        // If email confirmation is enabled, session may be null until they confirm.
-        if (data?.session) {
-          showOk(`✅ Signed up & logged in as ${data.user?.email || email}`);
-        } else {
+        // If email confirmation is ON, Supabase creates the user but session may be null until confirmed.
+        if (data?.user && !data?.session) {
           showOk("✅ Sign-up OK. If email confirmation is enabled, check your inbox, then sign in.");
+        } else {
+          showOk(`✅ Signed up and logged in as ${data?.user?.email || email}`);
         }
-        await refreshUserUI();
       } catch (e) {
-        showError("Sign-up failed.", e?.message || String(e));
+        showErr(e?.message || String(e));
       } finally {
-        setBusy(false, "");
+        setStatus("");
+        refreshAuthUI().catch(() => {});
       }
     });
 
-    signInBtn.addEventListener("click", async () => {
-      clearMsgs();
-      const { email, password } = getCreds();
-      if (!email || !password) return showError("Missing email or password.");
+    $("signInBtn").addEventListener("click", async () => {
+      clearMsg();
+      setStatus("Signing in…");
+      const email = $("email").value.trim();
+      const password = $("password").value;
 
-      setBusy(true, "Signing in…");
       try {
-        const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
+        const { data, error } = await withTimeout(
+          sb.auth.signInWithPassword({ email, password }),
+          15000,
+          "Sign in"
+        );
         if (error) throw error;
 
-        showOk(`✅ Logged in as ${data.user?.email || email}`);
-        await refreshUserUI();
+        showOk(`✅ Logged in as ${data?.user?.email || email}`);
       } catch (e) {
-        showError("Sign-in failed.", e?.message || String(e));
+        showErr(e?.message || String(e));
       } finally {
-        setBusy(false, "");
+        setStatus("");
+        refreshAuthUI().catch(() => {});
       }
     });
 
-    signOutBtn.addEventListener("click", async () => {
-      clearMsgs();
-      setBusy(true, "Signing out…");
+    $("signOutBtn").addEventListener("click", async () => {
+      clearMsg();
+      setStatus("Signing out…");
       try {
-        const { error } = await sbClient.auth.signOut();
+        const { error } = await withTimeout(sb.auth.signOut(), 15000, "Sign out");
         if (error) throw error;
-        await refreshUserUI();
+        showOk("✅ Logged out");
       } catch (e) {
-        showError("Sign-out failed.", e?.message || String(e));
+        showErr(e?.message || String(e));
       } finally {
-        setBusy(false, "");
-      }
-    });
-
-    refreshUserUI();
-});
-
-    document.getElementById("signInBtn").addEventListener("click", async () => {
-      setStatus("");
-      const email = emailEl.value.trim();
-      const password = passEl.value;
-      if (!email || !password) return alert("Enter email + password");
-      const { error } = await sbClient.auth.signInWithPassword({ email, password });
-      if (error) return alert(error.message);
-      refreshUserUI();
-    });
-
-    signOutBtn.addEventListener("click", async () => {
-      setStatus("");
-      const { error } = await sbClient.auth.signOut();
-      if (error) alert(error.message);
-      refreshUserUI();
-    });
-
-    sbClient.auth.onAuthStateChange(() => refreshUserUI());
-    refreshUserUI();
-
-    // ========================
-    // 5) BUTTONS
-    // ========================
-    document.getElementById("downloadCsv").addEventListener("click", () => {
-      setStatus("");
-      const cleaned = trimData(hot.getData());
-      const csv = toCsv(cleaned);
-      download("data.csv", csv);
-    });
-
-    document.getElementById("clearGrid").addEventListener("click", () => {
-      setStatus("");
-      hot.loadData(Array.from({ length: initialRows }, () => Array(initialCols).fill("")));
-    });
-
-    document.getElementById("saveDb").addEventListener("click", async () => {
-      clearMsgs();
-      const { data: { session } } = await sbClient.auth.getSession();
-      if (!session?.user) return alert("Please sign in first.");
-
-      const cleaned = trimData(hot.getData());
-      if (!cleaned.length) return alert("Nothing to save (grid is empty).");
-
-      const overwrite = document.getElementById("overwriteLatest")?.checked ?? false;
-
-      setStatus("Saving…");
-      try {
-        if (overwrite) {
-          const { data: latest, error: selErr } = await sbClient
-            .from(TABLE_NAME)
-            .select("id, created_at")
-            .eq("user_id", session.user.id)
-            .order("created_at", { ascending: false })
-            .limit(1);
-
-          if (selErr) throw selErr;
-
-          if (latest && latest.length) {
-            const latestId = latest[0].id;
-            const { error: updErr } = await sbClient
-              .from(TABLE_NAME)
-              .update({ rows: cleaned })
-              .eq("id", latestId);
-
-            if (updErr) throw updErr;
-            setStatus("Updated latest!");
-            setTimeout(() => setStatus(""), 2500);
-            return;
-          }
-        }
-
-        const { error } = await sbClient.from(TABLE_NAME).insert({
-          user_id: session.user.id,
-          rows: cleaned
-        });
-        if (error) throw error;
-
-        setStatus("Saved!");
-        setTimeout(() => setStatus(""), 2500);
-      } catch (e) {
-        showError("Save failed.", e?.message || String(e));
         setStatus("");
+        refreshAuthUI().catch(() => {});
       }
     });
 
-document.getElementById("loadDb").addEventListener("click", async () => {
-      setStatus("");
-      const { data: { session } } = await sbClient.auth.getSession();
-      if (!session?.user) return alert("Please sign in first.");
-
-      setStatus("Loading…");
-      const { data, error } = await sbClient
-        .from(TABLE_NAME)
-        .select("rows, created_at")
-        .eq("user_id", session.user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (error) {
-        setStatus("");
-        return alert(error.message);
-      }
-      if (!data?.length) {
-        setStatus("");
-        return alert("No saved uploads found.");
-      }
-
-      hot.loadData(data[0].rows);
-      setStatus("Loaded latest!");
-      setTimeout(() => setStatus(""), 2500);
-    });
-  
-    document.getElementById("copyJson").addEventListener("click", async () => {
-      clearMsgs();
-      const { data: { session } } = await sbClient.auth.getSession();
-      if (!session?.user) return alert("Please sign in first.");
-
-      setStatus("Copying…");
-      try {
-        const { data, error } = await sbClient
-          .from(TABLE_NAME)
-          .select("id, created_at, rows")
-          .eq("user_id", session.user.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .single();
-
-        if (error) throw error;
-        await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-
-        setStatus("Copied latest JSON!");
-        setTimeout(() => setStatus(""), 2500);
-      } catch (e) {
-        showError("Copy failed.", e?.message || String(e));
-        setStatus("");
-      }
-    });
-
-
-    async function testSupabaseConnection() {
-      // 1) DNS/health check
-      const r = await fetch(`${SUPABASE_URL}/auth/v1/health`);
-      if (!r.ok) throw new Error(`Health check failed (${r.status})`);
-      // 2) basic table call (may still fail with RLS, but connectivity will be proven)
-      const { error } = await sbClient.from(TABLE_NAME).select("id").limit(1);
+    // =========================
+    // 5) DB ACTIONS
+    // =========================
+    async function requireUser() {
+      const { data: { user }, error } = await withTimeout(sb.auth.getUser(), 15000, "Get user");
       if (error) throw error;
+      if (!user) throw new Error("You must be signed in to use this.");
+      return user;
     }
 
-    document.getElementById("testConnBtn").addEventListener("click", async () => {
-      clearMsgs();
+    async function getLatestForUser(userId) {
+      const { data, error } = await withTimeout(
+        sb.from(TABLE_NAME)
+          .select("id, created_at, rows")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(1),
+        15000,
+        "Fetch latest"
+      );
+      if (error) throw error;
+      return data?.[0] || null;
+    }
+
+    $("testConnBtn").addEventListener("click", async () => {
+      clearMsg();
       setStatus("Testing…");
       try {
-        await testSupabaseConnection();
-        setStatus("Supabase connection OK.");
-        setTimeout(() => setStatus(""), 2500);
+        // A small authenticated-ish call. If not logged in, this still tests reachability.
+        const { error } = await withTimeout(
+          sb.from(TABLE_NAME).select("id").limit(1),
+          15000,
+          "Connection test"
+        );
+        if (error) throw error;
+        showOk("✅ Connection OK (table query succeeded)");
       } catch (e) {
-        showError("Connection test failed.", (e?.message || String(e)) + "\n\nIf this says ‘Failed to fetch’, update Supabase → Authentication → URL Configuration with your GitHub Pages URL.");
+        showErr(
+          (e?.message || String(e)) +
+          "\\n\\nIf you see “Failed to fetch” or “Name not resolved”, double-check SUPABASE_URL and your network."
+        );
+      } finally {
         setStatus("");
       }
     });
 
-</script>
+    $("saveDb").addEventListener("click", async () => {
+      clearMsg();
+      setStatus("Saving…");
+
+      try {
+        const user = await requireUser();
+        const payload = gridTo2dArray();
+
+        if ($("overwriteLatest").checked) {
+          const latest = await getLatestForUser(user.id);
+          if (latest?.id) {
+            const { error } = await withTimeout(
+              sb.from(TABLE_NAME).update({ rows: payload }).eq("id", latest.id),
+              15000,
+              "Update latest"
+            );
+            if (error) throw error;
+            showOk(`✅ Updated your latest record (${latest.id})`);
+          } else {
+            const { error } = await withTimeout(
+              sb.from(TABLE_NAME).insert({ user_id: user.id, rows: payload }),
+              15000,
+              "Insert"
+            );
+            if (error) throw error;
+            showOk("✅ Saved (no previous record existed, so inserted a new one)");
+          }
+        } else {
+          const { error } = await withTimeout(
+            sb.from(TABLE_NAME).insert({ user_id: user.id, rows: payload }),
+            15000,
+            "Insert"
+          );
+          if (error) throw error;
+          showOk("✅ Saved (inserted a new record)");
+        }
+      } catch (e) {
+        showErr(e?.message || String(e));
+      } finally {
+        setStatus("");
+      }
+    });
+
+    $("loadDb").addEventListener("click", async () => {
+      clearMsg();
+      setStatus("Loading…");
+      try {
+        const user = await requireUser();
+        const latest = await getLatestForUser(user.id);
+        if (!latest) throw new Error("No saved data found for your user yet.");
+
+        hot.loadData(latest.rows || Handsontable.helper.createEmptySpreadsheetData(20, 12));
+        showOk(`✅ Loaded your latest record (${latest.id}) from ${new Date(latest.created_at).toLocaleString()}`);
+      } catch (e) {
+        showErr(e?.message || String(e));
+      } finally {
+        setStatus("");
+      }
+    });
+
+    $("copyJson").addEventListener("click", async () => {
+      clearMsg();
+      setStatus("Copying…");
+      try {
+        const user = await requireUser();
+        const latest = await getLatestForUser(user.id);
+        if (!latest) throw new Error("No saved data found for your user yet.");
+
+        const text = JSON.stringify(latest.rows ?? null, null, 2);
+        await navigator.clipboard.writeText(text);
+        showOk("✅ Copied your latest JSON to clipboard");
+      } catch (e) {
+        showErr(e?.message || String(e));
+      } finally {
+        setStatus("");
+      }
+    });
+
+    $("downloadCsv").addEventListener("click", () => {
+      clearMsg();
+      const data = gridTo2dArray();
+      const csv = data.map(row =>
+        row.map(cell => {
+          const s = String(cell ?? "");
+          const needsQuotes = /[",\\n]/.test(s);
+          const escaped = s.replaceAll('"', '""');
+          return needsQuotes ? `"${escaped}"` : escaped;
+        }).join(",")
+      ).join("\\n");
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "grid.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+      showOk("✅ CSV downloaded");
+    });
+
+    $("clearGrid").addEventListener("click", () => {
+      clearMsg();
+      hot.loadData(Handsontable.helper.createEmptySpreadsheetData(20, 12));
+      showOk("✅ Cleared grid");
+    });
+
+    // Initial
+    refreshAuthUI().catch(() => {});
+  </script>
 </body>
 </html>
