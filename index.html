@@ -287,101 +287,52 @@
       }
     });
 
-        $("saveDb").addEventListener("click", async () => {
+    $("saveDb").addEventListener("click", async () => {
       try {
-        setStatus("Saving…");
-        clearMessages();
-
-        const user = await requireUser();
-        const payload = getGridPayload();
-        if (!payload || payload.length === 0) throw new Error("Grid is empty.");
-
-        const overwrite = $("overwriteLatest").checked;
+        setStatus("Saving to Supabase...");
+        const user = await requireAuth();
+        const payload = hot.getData(); // 2D array
+        const overwrite = $("overwriteLatest")?.checked;
 
         if (overwrite) {
-  const latest = await getLatestForUser(user.id);
+          // Delete ALL previous uploads for this user, then insert a fresh one.
+          // (This keeps only one "latest" record per user.)
+          const { data: deleted, error: delError } = await withTimeout(
+            sb.from(TABLE_NAME).delete().eq("user_id", user.id).select("id"),
+            15000,
+            "Delete previous"
+          );
+          if (delError) throw delError;
 
-  if (latest?.id) {
-    // Preferred: UPDATE the latest row (requires an UPDATE RLS policy)
-    let upd = null;
-    let updErr = null;
-    ({ data: upd, error: updErr } = await sb
-      .from(TABLE_NAME)
-      .update({ rows: payload })
-      .eq("id", latest.id)
-      .eq("user_id", user.id)
-      .select("id")
-      .single());
+          const deletedCount = deleted?.length || 0;
 
-    if (updErr) {
-      // Fallback: DELETE + INSERT (works if you have SELECT+DELETE+INSERT policies)
-      const { error: delErr } = await sb
-        .from(TABLE_NAME)
-        .delete()
-        .eq("id", latest.id)
-        .eq("user_id", user.id);
+          const { error: insError } = await withTimeout(
+            sb.from(TABLE_NAME).insert({ user_id: user.id, rows: payload }),
+            15000,
+            "Insert"
+          );
+          if (insError) throw insError;
 
-      if (delErr) {
-        throw new Error(
-          "Overwrite failed. UPDATE was blocked and DELETE also failed. " +
-            "To fix, add an UPDATE policy on public.grid_uploads (USING auth.uid() = user_id, WITH CHECK auth.uid() = user_id) " +
-            "or ensure your DELETE policy allows deleting own uploads. Details: " +
-            JSON.stringify({ updErr, delErr })
-        );
-      }
-
-      const { error: insErr } = await sb
-        .from(TABLE_NAME)
-        .insert({ user_id: user.id, rows: payload });
-
-      if (insErr) throw insErr;
-
-      showOk("✅ Saved (overwrote by delete + insert).");
-    } else {
-      showOk("✅ Saved (overwrote your latest record).");
-    }
-  } else {
-    const { error: insertErr } = await sb
-      .from(TABLE_NAME)
-      .insert({ user_id: user.id, rows: payload });
-    if (insertErr) throw insertErr;
-    showOk("✅ Saved (first upload for this user).");
-  }
-} else {
-            const { data, error } = await withTimeout(
-              sb.from(TABLE_NAME).insert({ user_id: user.id, rows: payload }).select("id"),
-              15000,
-              "Insert"
-            );
-            if (error) throw error;
-            if (!data || data.length === 0) {
-              throw new Error(
-                "Insert returned 0 rows. This usually means Row Level Security is blocking INSERT. Add an INSERT policy: WITH CHECK (auth.uid() = user_id)."
-              );
-            }
-            showOk("✅ Saved (created your first record).");
-          }
+          showOk(
+            `✅ Saved (overwrote — deleted ${deletedCount} previous record${deletedCount === 1 ? "" : "s"} then inserted a new one)`
+          );
         } else {
-          const { data, error } = await withTimeout(
-            sb.from(TABLE_NAME).insert({ user_id: user.id, rows: payload }).select("id"),
+          const { error } = await withTimeout(
+            sb.from(TABLE_NAME).insert({ user_id: user.id, rows: payload }),
             15000,
             "Insert"
           );
           if (error) throw error;
-          if (!data || data.length === 0) {
-            throw new Error(
-              "Insert returned 0 rows. This usually means Row Level Security is blocking INSERT. Add an INSERT policy: WITH CHECK (auth.uid() = user_id)."
-            );
-          }
-          showOk("✅ Saved (added a new record).");
+          showOk("✅ Saved (inserted a new record)");
         }
-
-        setStatus("");
       } catch (e) {
         showErr(e?.message || String(e));
+      } finally {
         setStatus("");
       }
-    });$("loadDb").addEventListener("click", async () => {
+    });
+
+    $("loadDb").addEventListener("click", async () => {
       clearMsg();
       setStatus("Loading…");
       try {
