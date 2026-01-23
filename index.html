@@ -577,17 +577,22 @@
 
       showAuthMsg("ok", "Signing in…");
       try {
-        // Add a timeout so the UI never gets stuck
-        const signInPromise = sb.auth.signInWithPassword({ email, password });
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Sign-in timed out. Check network / blockers, then try again.")), 15000)
-        );
+        // Do not hard-fail on a timer (can false-trigger on slow networks / cold starts).
+        // Instead, show a "still working" hint after 10s while we keep waiting.
+        let slowTimer = setTimeout(() => {
+          showAuthMsg("ok", "Still signing in… (if this keeps happening, disable blockers for supabase.co / jsdelivr.net)");
+        }, 10000);
 
-        const { data, error } = await Promise.race([signInPromise, timeoutPromise]);
+        const { data, error } = await sb.auth.signInWithPassword({ email, password });
+        clearTimeout(slowTimer);
+
         if (error) {
           const msg = String(error.message || error);
           if (msg.toLowerCase().includes("email") && msg.toLowerCase().includes("confirm")) {
-            return showAuthMsg("err", msg + " (Confirm in Supabase Auth → Users, or disable confirm-email temporarily.)");
+            return showAuthMsg(
+              "err",
+              msg + " (Confirm in Supabase Auth → Users, or disable confirm-email temporarily.)"
+            );
           }
           return showAuthMsg("err", msg);
         }
