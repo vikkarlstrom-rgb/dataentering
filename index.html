@@ -3,155 +3,502 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Excel Paste Grid → Supabase</title>
+  <title>Data input • Excel Paste Grid</title>
 
   <!-- Handsontable Community Edition (CDN) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@14.5.0/dist/handsontable.full.min.css">
   <script src="https://cdn.jsdelivr.net/npm/handsontable@14.5.0/dist/handsontable.full.min.js"></script>
 
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 16px; }
-    h2 { margin-top: 0; }
-    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin: 10px 0; }
-    .toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin: 10px 0 12px; }
-    button { padding: 8px 12px; cursor: pointer; }
-    input { padding: 8px 10px; min-width: 220px; }
-    .label { font-size:12px; color:#555; margin-bottom: 4px; }
-    .hint { color:#555; font-size: 14px; }
-    #grid { width:100%; max-width:1200px; }
-    #status { color:#444; font-size:14px; margin-left: 6px; }
-    .pill { padding: 2px 8px; border: 1px solid #ddd; border-radius: 999px; font-size: 12px; color:#333; }
-    .error { margin-top:10px; padding: 10px 12px; border: 1px solid #f3c0c0; background:#fff4f4; color:#7a1f1f; border-radius: 8px; display:none; max-width: 1200px; }
-    .ok { margin-top:10px; padding: 10px 12px; border: 1px solid #c6edc6; background:#f3fff6; color:#145a2a; border-radius: 8px; display:none; max-width: 1200px; }
-    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-    .small { font-size: 12px; color:#666; }
-    .inline { display:inline-flex; align-items:center; gap:8px; }
+    :root {
+      --bg1: #f3f5ff;
+      --bg2: #ffe7f6;
+      --bg3: #e6fff7;
+      --ink: #0b0f1a;
+      --muted: rgba(11, 15, 26, .65);
+      --card: rgba(255,255,255,.72);
+      --border: rgba(11, 15, 26, .12);
+      --shadow: 0 18px 60px rgba(11, 15, 26, .12);
+      --shadow2: 0 10px 30px rgba(11, 15, 26, .10);
+      --btn: #0b0f1a;
+      --btnInk: #fff;
+      --btnGhost: rgba(11, 15, 26, .06);
+      --okBg: rgba(16, 185, 129, .14);
+      --okBorder: rgba(16, 185, 129, .35);
+      --errBg: rgba(239, 68, 68, .12);
+      --errBorder: rgba(239, 68, 68, .32);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--ink);
+      background:
+        radial-gradient(1100px 600px at 15% 20%, var(--bg2), transparent 65%),
+        radial-gradient(900px 550px at 75% 30%, var(--bg1), transparent 70%),
+        radial-gradient(900px 650px at 55% 95%, var(--bg3), transparent 65%),
+        #fbfbff;
+      min-height: 100vh;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(14px);
+      background: rgba(255,255,255,.55);
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar-inner {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      justify-content: space-between;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .brand-badge {
+      width: 34px; height: 34px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(0,0,0,.95), rgba(0,0,0,.75));
+      color: #fff;
+      display: grid;
+      place-items: center;
+      box-shadow: var(--shadow2);
+      font-weight: 900;
+    }
+    .topbar-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.7);
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      color: var(--muted);
+      max-width: 360px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 26px 18px 40px;
+    }
+
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 22px;
+      align-items: stretch;
+    }
+    @media (max-width: 980px) {
+      .grid2 { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+    }
+    .card-inner { padding: 22px; }
+
+    .hero {
+      padding: 34px 28px;
+      min-height: 420px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .hero h1 {
+      font-size: clamp(42px, 4.6vw, 64px);
+      line-height: .92;
+      letter-spacing: -0.04em;
+      margin: 0 0 14px;
+    }
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.6;
+      max-width: 52ch;
+    }
+    .hero-note {
+      margin-top: 20px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.6);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .auth-card .title {
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    @media (max-width: 520px) {
+      .field-row { grid-template-columns: 1fr; }
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin: 10px 0 6px;
+    }
+    input[type="email"], input[type="password"], input[type="text"] {
+      width: 100%;
+      padding: 12px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.75);
+      outline: none;
+      font-size: 14px;
+    }
+    input:focus {
+      border-color: rgba(11,15,26,.28);
+      box-shadow: 0 0 0 4px rgba(11,15,26,.06);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    button {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.7);
+      color: var(--ink);
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-weight: 650;
+      cursor: pointer;
+      transition: transform .06s ease, background .2s ease, border-color .2s ease;
+    }
+    button:hover { transform: translateY(-1px); }
+    button:active { transform: translateY(0px); }
+    button.primary {
+      background: var(--btn);
+      color: var(--btnInk);
+      border-color: rgba(11,15,26,.15);
+    }
+    button.ghost { background: var(--btnGhost); }
+    button[disabled] { opacity: .55; cursor: not-allowed; transform: none; }
+
+    .app-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .app-title { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
+    .app-sub { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: end;
+      margin: 10px 0 14px;
+    }
+    @media (max-width: 820px) {
+      .toolbar { grid-template-columns: 1fr; }
+    }
+    .toolbar-left {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      align-items: end;
+    }
+    @media (max-width: 520px) {
+      .toolbar-left { grid-template-columns: 1fr; }
+    }
+    .inline {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      user-select: none;
+    }
+    .toggle input {
+      width: 18px;
+      height: 18px;
+      accent-color: #0b0f1a;
+    }
+    .hint { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+
+    #grid {
+      width: 100%;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.65);
+    }
+
+    .msg {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.6);
+      color: var(--muted);
+      font-size: 14px;
+    }
+    #okBox {
+      display: none;
+      background: var(--okBg);
+      border-color: var(--okBorder);
+      color: rgba(6, 95, 70, 1);
+      font-weight: 650;
+    }
+    #errorBox {
+      display: none;
+      background: var(--errBg);
+      border-color: var(--errBorder);
+      color: rgba(153, 27, 27, 1);
+      font-weight: 650;
+    }
+    .hidden { display: none !important; }
   </style>
 </head>
+
 <body>
-  <h2>Paste from Excel into the grid</h2>
-
-  <div class="small">
-    Project: <code id="projUrl"></code> • Table: <code id="tableName"></code>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-badge">D</div>
+        <div>Data input</div>
+      </div>
+      <div class="topbar-meta">
+        <span class="pill">Project: https://bfvidvslxcofuaoylhli.supabase.co • Table: <b>grid_uploads</b></span>
+        <span class="pill" id="whoami">Not signed in</span>
+      </div>
+    </div>
   </div>
 
-  <!-- Auth -->
-  <div class="row">
-    <div>
-      <div class="label">Email</div>
-      <input id="email" type="email" placeholder="you@company.com" autocomplete="username" />
-    </div>
-    <div>
-      <div class="label">Password</div>
-      <input id="password" type="password" placeholder="password" autocomplete="current-password" />
-    </div>
-    <div>
-      <div class="label">Dataset name</div>
-      <input id="dataset" list="datasetOptions" placeholder="Reporting_structure" />
-      <datalist id="datasetOptions">
-        <option value="Reporting_structure"></option>
-        <option value="Financial_data"></option>
-        <option value="HR_data"></option>
-      </datalist>
-      <div class="small">Used for Load/Overwrite. Saved into the DB column <code>dataset</code>.</div>
-    </div>
+  <div class="wrap">
+    <section id="authView" class="grid2">
+      <div class="card hero">
+        <div>
+          <div class="pill" style="width:fit-content; margin-bottom:14px;">Paste Excel • Save to Supabase</div>
+          <h1>Process.<br/>Upload.<br/>Own your data.</h1>
+          <p>
+            Sign in to upload spreadsheet-style tables straight into Supabase.
+            Use dataset names like <b>Reporting_structure</b>, <b>Financial_data</b>, or <b>HR_data</b>
+            so you can load/overwrite each dataset independently.
+          </p>
+          <div class="hero-note">
+            Tip: If Sign up requires email confirmation, turn it off temporarily in
+            <b>Authentication → Sign in / Providers → Email</b> (Confirm email).
+          </div>
+        </div>
+        <div class="pill" style="width:fit-content;">Secure via Supabase Auth</div>
+      </div>
 
-    <button type="button" id="signUpBtn">Sign up</button>
-    <button type="button" id="signInBtn">Sign in</button>
-    <button type="button" id="signOutBtn" style="display:none;">Sign out</button>
+      <div class="card auth-card">
+        <div class="card-inner">
+          <div class="title">Sign in</div>
 
-    <button type="button" id="testConnBtn">Test Supabase connection</button>
-    <span class="pill" id="whoami">Not signed in</span>
+          <div class="field-row">
+            <div>
+              <label>Email</label>
+              <input id="email" type="email" placeholder="you@company.com" autocomplete="username" />
+            </div>
+            <div>
+              <label>Password</label>
+              <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+            </div>
+          </div>
+
+          <div class="btn-row">
+            <button type="button" id="signInBtn" class="primary">Sign in</button>
+            <button type="button" id="signUpBtn" class="ghost">Sign up</button>
+            <button type="button" id="testConnBtn">Test Supabase connection</button>
+          </div>
+
+          <div class="hint">After signing in, you’ll be taken to the upload screen.</div>
+
+          <div id="okBox" class="msg"></div>
+          <div id="errorBox" class="msg"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="appView" class="hidden">
+      <div class="card">
+        <div class="card-inner">
+          <div class="app-head">
+            <div>
+              <h2 class="app-title">Upload</h2>
+              <p class="app-sub">Paste from Excel into the grid, then save into Supabase.</p>
+            </div>
+            <div class="inline">
+              <button type="button" id="signOutBtn" class="ghost">Sign out</button>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <div class="toolbar-left">
+              <div>
+                <label>Dataset name</label>
+                <input id="datasetName" type="text" value="Reporting_structure" />
+                <div class="hint">Used for Load/Overwrite. Saved into DB column <b>dataset</b>.</div>
+              </div>
+              <div>
+                <label>Actions</label>
+                <div class="inline">
+                  <button type="button" id="downloadCsv">Download CSV</button>
+                  <button type="button" id="saveDb" class="primary">Save to Supabase</button>
+                </div>
+                <div class="inline" style="margin-top:10px;">
+                  <label class="toggle"><input id="overwriteToggle" type="checkbox" /> Overwrite my latest (same dataset)</label>
+                  <button type="button" id="loadDb" class="ghost">Load my latest (same dataset)</button>
+                  <button type="button" id="copyJson" class="ghost">Copy my latest JSON</button>
+                  <button type="button" id="clearGrid">Clear grid</button>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div id="status" class="hint"></div>
+            </div>
+          </div>
+
+          <div class="hint">Tip: click a cell, then paste (Ctrl/Cmd+V). You can paste many cells at once.</div>
+          <div id="grid" style="margin-top:12px;"></div>
+
+          <div id="okBoxApp" class="msg" style="display:none; background: var(--okBg); border-color: var(--okBorder); color: rgba(6,95,70,1); font-weight:650;"></div>
+          <div id="errorBoxApp" class="msg" style="display:none; background: var(--errBg); border-color: var(--errBorder); color: rgba(153,27,27,1); font-weight:650;"></div>
+        </div>
+      </div>
+    </section>
   </div>
 
-  <!-- Actions -->
-  <div class="toolbar">
-    <button type="button" id="downloadCsv">Download CSV</button>
-    <button type="button" id="saveDb">Save to Supabase</button>
-
-    <label class="inline">
-      <input type="checkbox" id="overwriteLatest" />
-      <span>Overwrite my latest (same dataset)</span>
-    </label>
-
-    <button type="button" id="loadDb">Load my latest (same dataset)</button>
-    <button type="button" id="copyJson">Copy my latest JSON</button>
-    <button type="button" id="clearGrid">Clear grid</button>
-
-    <span class="hint">Tip: click a cell, then paste (Ctrl/Cmd+V). You can paste many cells at once.</span>
-    <span id="status"></span>
-  </div>
-
-  <div id="grid"></div>
-
-  <div id="okBox" class="ok"></div>
-  <div id="errorBox" class="error"></div>
-
-  <!-- Main app logic as an ES module (supabase-js v2 via CDN ESM) -->
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-    // =========================
-    // 1) CONFIG
-    // =========================
     const SUPABASE_URL = "https://bfvidvslxcofuaoylhli.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_mLe7GSD1JP-1tYK1k09ZQg_mLydwaON"; // <-- KEEP YOUR REAL KEY HERE
+    const SUPABASE_ANON_KEY = "sb_publishable_mLe7GSD1JP-1tYK1k09ZQg_mLydwaON";
     const TABLE_NAME = "grid_uploads";
-
-    // Column that stores the dataset name (add this column in Supabase)
-    const DATASET_COL = "dataset";
-
-    document.getElementById("projUrl").textContent = SUPABASE_URL;
-    document.getElementById("tableName").textContent = TABLE_NAME;
 
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // =========================
-    // 2) UI helpers
-    // =========================
-    const $ = (id) => document.getElementById(id);
+    const authView = document.getElementById("authView");
+    const appView  = document.getElementById("appView");
 
-    function setStatus(t) { $("status").textContent = t || ""; }
-    function showErr(msg) {
-      $("okBox").style.display = "none";
-      $("errorBox").style.display = "block";
-      $("errorBox").textContent = msg;
+    const emailEl = document.getElementById("email");
+    const passEl  = document.getElementById("password");
+    const datasetEl = document.getElementById("datasetName");
+
+    const whoamiEl = document.getElementById("whoami");
+    const statusEl = document.getElementById("status");
+
+    const okBoxAuth = document.getElementById("okBox");
+    const errBoxAuth = document.getElementById("errorBox");
+    const okBoxApp = document.getElementById("okBoxApp");
+    const errBoxApp = document.getElementById("errorBoxApp");
+
+    function showAuthMsg(type, msg) {
+      okBoxAuth.style.display = "none";
+      errBoxAuth.style.display = "none";
+      if (!msg) return;
+      if (type === "ok") {
+        okBoxAuth.textContent = msg;
+        okBoxAuth.style.display = "block";
+      } else {
+        errBoxAuth.textContent = msg;
+        errBoxAuth.style.display = "block";
+      }
     }
-    function showOk(msg) {
-      $("errorBox").style.display = "none";
-      $("okBox").style.display = "block";
-      $("okBox").textContent = msg;
+
+    function showAppMsg(type, msg) {
+      okBoxApp.style.display = "none";
+      errBoxApp.style.display = "none";
+      if (!msg) return;
+      if (type === "ok") {
+        okBoxApp.textContent = msg;
+        okBoxApp.style.display = "block";
+      } else {
+        errBoxApp.textContent = msg;
+        errBoxApp.style.display = "block";
+      }
     }
-    function clearMsg() {
-      $("okBox").style.display = "none";
-      $("errorBox").style.display = "none";
-      $("okBox").textContent = "";
-      $("errorBox").textContent = "";
+
+    function setOk(msg) {
+      if (!appView.classList.contains("hidden")) showAppMsg("ok", msg);
+      else showAuthMsg("ok", msg);
+    }
+    function setErr(msg) {
+      if (!appView.classList.contains("hidden")) showAppMsg("err", msg);
+      else showAuthMsg("err", msg);
+    }
+    function setStatus(msg) {
+      statusEl.textContent = msg || "";
     }
 
     function getDatasetName() {
-      const v = ($("dataset").value || "").trim();
+      const v = (datasetEl?.value || "").trim();
       return v || "default";
     }
 
-    // A small timeout wrapper to avoid "stuck" UI
-    async function withTimeout(promise, ms, label) {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(label || "timeout"), ms);
-      try {
-        // supabase-js doesn't accept AbortController on every method; this still protects our UI.
-        return await promise;
-      } finally {
-        clearTimeout(t);
-      }
+    function rowsFromGrid() {
+      return hot.getData();
+    }
+
+    function rowsToCSV(rows) {
+      return rows.map(r => r.map(cell => {
+        const s = (cell ?? "").toString();
+        const escaped = s.includes('"') ? s.replaceAll('"','""') : s;
+        if (/[",\n\r]/.test(escaped)) return `"${escaped}"`;
+        return escaped;
+      }).join(",")).join("\n");
     }
 
     async function requireUser() {
       const { data, error } = await sb.auth.getUser();
       if (error) throw error;
-      const user = data?.user;
-      if (!user) throw new Error("You must be signed in.");
-      return user;
+      if (!data.user) throw new Error("Not signed in.");
+      return data.user;
     }
 
     async function refreshAuthUI() {
@@ -159,281 +506,214 @@
       const user = data?.user;
 
       if (user) {
-        $("whoami").textContent = user.email || user.id;
-        $("signOutBtn").style.display = "";
+        whoamiEl.textContent = user.email || user.id;
+        document.getElementById("signOutBtn").style.display = "inline-block";
+        authView.classList.add("hidden");
+        appView.classList.remove("hidden");
+        showAuthMsg("ok", "");
+        showAuthMsg("err", "");
+        setOk("✅ Signed in successfully.");
       } else {
-        $("whoami").textContent = "Not signed in";
-        $("signOutBtn").style.display = "none";
+        whoamiEl.textContent = "Not signed in";
+        document.getElementById("signOutBtn").style.display = "none";
+        appView.classList.add("hidden");
+        authView.classList.remove("hidden");
+        showAppMsg("ok", "");
+        showAppMsg("err", "");
       }
     }
 
-    // =========================
-    // 3) Handsontable grid
-    // =========================
-    const container = $("grid");
+    // --- Auth
+    document.getElementById("signUpBtn").addEventListener("click", async () => {
+      try {
+        showAuthMsg("err", "");
+        showAuthMsg("ok", "");
+        const email = emailEl.value.trim();
+        const password = passEl.value;
+        if (!email || !password) throw new Error("Enter email + password.");
+        const { error } = await sb.auth.signUp({ email, password });
+        if (error) throw error;
+        setOk("✅ Sign-up OK. If email confirmation is enabled, check your inbox, then sign in.");
+      } catch (e) {
+        setErr(e.message || String(e));
+      }
+    });
+
+    document.getElementById("signInBtn").addEventListener("click", async () => {
+      try {
+        showAuthMsg("err", "");
+        showAuthMsg("ok", "");
+        const email = emailEl.value.trim();
+        const password = passEl.value;
+        if (!email || !password) throw new Error("Enter email + password.");
+        setStatus("Signing in…");
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        setStatus("");
+        await refreshAuthUI();
+      } catch (e) {
+        setStatus("");
+        setErr(e.message || String(e));
+      }
+    });
+
+    document.getElementById("signOutBtn").addEventListener("click", async () => {
+      try {
+        await sb.auth.signOut();
+        setOk("Signed out.");
+        await refreshAuthUI();
+      } catch (e) {
+        setErr(e.message || String(e));
+      }
+    });
+
+    document.getElementById("testConnBtn").addEventListener("click", async () => {
+      try {
+        showAuthMsg("err", "");
+        showAuthMsg("ok", "");
+        const { error } = await sb.from(TABLE_NAME).select("id").limit(1);
+        if (error) throw error;
+        setOk("✅ Connection OK.");
+      } catch (e) {
+        setErr(e.message || String(e));
+      }
+    });
+
+    // --- Handsontable
+    const container = document.getElementById("grid");
     const hot = new Handsontable(container, {
-      data: Handsontable.helper.createEmptySpreadsheetData(20, 12),
+      data: Array.from({ length: 20 }, () => Array.from({ length: 12 }, () => "")),
       rowHeaders: true,
       colHeaders: true,
       contextMenu: true,
-      manualColumnMove: true,
-      manualRowMove: true,
+      dropdownMenu: true,
       licenseKey: "non-commercial-and-evaluation",
-      width: "100%",
-      height: 460,
-      stretchH: "all",
+      manualColumnResize: true,
+      manualRowResize: true,
+      minSpareRows: 1,
+      minSpareCols: 1,
     });
 
-    function gridTo2dArray() {
-      const data = hot.getData();
-      // Trim trailing completely-empty rows
-      let lastNonEmptyRow = data.length - 1;
-      while (lastNonEmptyRow >= 0) {
-        const row = data[lastNonEmptyRow] || [];
-        if (row.some((c) => String(c ?? "").trim() !== "")) break;
-        lastNonEmptyRow--;
-      }
-      const trimmed = data.slice(0, lastNonEmptyRow + 1);
-      return trimmed;
-    }
-
-    // =========================
-    // 4) DB helpers
-    // =========================
-    async function getLatestForUserAndDataset(userId, datasetName) {
-      const q = sb
-        .from(TABLE_NAME)
-        .select("id, user_id, created_at, rows, " + DATASET_COL)
-        .eq("user_id", userId)
-        .eq(DATASET_COL, datasetName)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      const { data, error } = await withTimeout(q, 15000, "Fetch latest");
-      if (error) throw error;
-      return data?.[0] || null;
-    }
-
-    // =========================
-    // 5) Auth actions
-    // =========================
-    $("signUpBtn").addEventListener("click", async () => {
-      clearMsg();
-      setStatus("Signing up…");
-      try {
-        const email = $("email").value.trim();
-        const password = $("password").value;
-        if (!email || !password) throw new Error("Email + password required.");
-
-        const { error } = await withTimeout(
-          sb.auth.signUp({ email, password }),
-          15000,
-          "Sign up"
-        );
-        if (error) throw error;
-
-        showOk("✅ Sign-up OK. If email confirmation is enabled, check your inbox, then sign in.");
-        await refreshAuthUI();
-      } catch (e) {
-        showErr(e?.message || String(e));
-      } finally {
-        setStatus("");
-      }
-    });
-
-    $("signInBtn").addEventListener("click", async () => {
-      clearMsg();
-      setStatus("Signing in…");
-      try {
-        const email = $("email").value.trim();
-        const password = $("password").value;
-        if (!email || !password) throw new Error("Email + password required.");
-
-        const { data, error } = await withTimeout(
-          sb.auth.signInWithPassword({ email, password }),
-          15000,
-          "Sign in"
-        );
-        if (error) throw error;
-
-        showOk("✅ Logged in successfully");
-        await refreshAuthUI();
-      } catch (e) {
-        showErr(e?.message || String(e));
-      } finally {
-        setStatus("");
-      }
-    });
-
-    $("signOutBtn").addEventListener("click", async () => {
-      clearMsg();
-      setStatus("Signing out…");
-      try {
-        const { error } = await withTimeout(sb.auth.signOut(), 15000, "Sign out");
-        if (error) throw error;
-        showOk("✅ Signed out");
-        await refreshAuthUI();
-      } catch (e) {
-        showErr(e?.message || String(e));
-      } finally {
-        setStatus("");
-      }
-    });
-
-    // =========================
-    // 6) Connection test
-    // =========================
-    $("testConnBtn").addEventListener("click", async () => {
-      clearMsg();
-      setStatus("Testing…");
-      try {
-        const { error } = await withTimeout(
-          sb.from(TABLE_NAME).select("id").limit(1),
-          15000,
-          "Connection test"
-        );
-        if (error) throw error;
-        showOk("✅ Connection OK (table query succeeded)");
-      } catch (e) {
-        showErr(
-          (e?.message || String(e)) +
-          "\n\nIf you see “Failed to fetch” or “Name not resolved”, double-check SUPABASE_URL and your network."
-        );
-      } finally {
-        setStatus("");
-      }
-    });
-
-    // =========================
-    // 7) Save / Load / Copy JSON
-    // =========================
-    $("saveDb").addEventListener("click", async () => {
-      clearMsg();
-      setStatus("Saving…");
-
-      try {
-        const user = await requireUser();
-        const payload = gridTo2dArray();
-        const datasetName = getDatasetName();
-
-        if ($("overwriteLatest").checked) {
-          // Delete the latest for this dataset, then insert a fresh row (simple & reliable with RLS)
-          const latest = await getLatestForUserAndDataset(user.id, datasetName);
-
-          if (latest?.id) {
-            const { error: delErr } = await withTimeout(
-              sb.from(TABLE_NAME).delete().eq("id", latest.id),
-              15000,
-              "Delete latest"
-            );
-            if (delErr) throw delErr;
-          }
-
-          const { error: insErr } = await withTimeout(
-            sb.from(TABLE_NAME).insert({ user_id: user.id, [DATASET_COL]: datasetName, rows: payload }),
-            15000,
-            "Insert new"
-          );
-          if (insErr) throw insErr;
-
-          showOk(`✅ Overwrote latest for dataset "${datasetName}"`);
-        } else {
-          const { error } = await withTimeout(
-            sb.from(TABLE_NAME).insert({ user_id: user.id, [DATASET_COL]: datasetName, rows: payload }),
-            15000,
-            "Insert"
-          );
-          if (error) throw error;
-          showOk(`✅ Saved (inserted a new record) for dataset "${datasetName}"`);
-        }
-      } catch (e) {
-        showErr(e?.message || String(e));
-      } finally {
-        setStatus("");
-      }
-    });
-
-    $("loadDb").addEventListener("click", async () => {
-      clearMsg();
-      setStatus("Loading…");
-      try {
-        const user = await requireUser();
-        const datasetName = getDatasetName();
-        const latest = await getLatestForUserAndDataset(user.id, datasetName);
-        if (!latest) throw new Error(`No saved data found yet for dataset "${datasetName}".`);
-
-        hot.loadData(latest.rows || Handsontable.helper.createEmptySpreadsheetData(20, 12));
-        showOk(`✅ Loaded latest for "${datasetName}" (${latest.id}) from ${new Date(latest.created_at).toLocaleString()}`);
-      } catch (e) {
-        showErr(e?.message || String(e));
-      } finally {
-        setStatus("");
-      }
-    });
-
-    $("copyJson").addEventListener("click", async () => {
-      clearMsg();
-      setStatus("Copying…");
-      try {
-        const user = await requireUser();
-        const datasetName = getDatasetName();
-        const latest = await getLatestForUserAndDataset(user.id, datasetName);
-        if (!latest) throw new Error(`No saved data found yet for dataset "${datasetName}".`);
-
-        const text = JSON.stringify(latest.rows ?? null, null, 2);
-        await navigator.clipboard.writeText(text);
-        showOk(`✅ Copied latest JSON for "${datasetName}" to clipboard`);
-      } catch (e) {
-        showErr(e?.message || String(e));
-      } finally {
-        setStatus("");
-      }
-    });
-
-    // =========================
-    // 8) CSV / Clear
-    // =========================
-    $("downloadCsv").addEventListener("click", () => {
-      clearMsg();
-      const data = gridTo2dArray();
-      const csv = data.map(row =>
-        row.map(cell => {
-          const s = String(cell ?? "");
-          const needsQuotes = /[",\n]/.test(s);
-          const escaped = s.replaceAll('"', '""');
-          return needsQuotes ? `"${escaped}"` : escaped;
-        }).join(",")
-      ).join("\n");
-
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    // --- CSV download
+    document.getElementById("downloadCsv").addEventListener("click", () => {
+      const csv = rowsToCSV(rowsFromGrid());
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `${getDatasetName()}.csv`;
+      document.body.appendChild(a);
       a.click();
+      a.remove();
       URL.revokeObjectURL(url);
-      showOk("✅ CSV downloaded");
     });
 
-    $("clearGrid").addEventListener("click", () => {
-      clearMsg();
-      hot.loadData(Handsontable.helper.createEmptySpreadsheetData(20, 12));
-      showOk("✅ Cleared grid");
+    // --- Save / Load helpers
+    async function getLatestRowIdForUserAndDataset(userId, dataset) {
+      const { data, error } = await sb
+        .from(TABLE_NAME)
+        .select("id")
+        .eq("user_id", userId)
+        .eq("dataset", dataset)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (error) throw error;
+      return data?.[0]?.id || null;
+    }
+
+    document.getElementById("saveDb").addEventListener("click", async () => {
+      try {
+        setStatus("");
+        showAppMsg("err", "");
+        showAppMsg("ok", "");
+
+        const user = await requireUser();
+        const dataset = getDatasetName();
+        const overwrite = document.getElementById("overwriteToggle").checked;
+
+        const rows = rowsFromGrid();
+        const payload = { user_id: user.id, dataset, rows };
+
+        setStatus(overwrite ? "Overwriting latest…" : "Saving…");
+
+        if (overwrite) {
+          const latestId = await getLatestRowIdForUserAndDataset(user.id, dataset);
+          if (latestId) {
+            const { error: delErr } = await sb.from(TABLE_NAME).delete().eq("id", latestId);
+            if (delErr) throw delErr;
+          }
+        }
+
+        const { error: insErr } = await sb.from(TABLE_NAME).insert(payload);
+        if (insErr) throw insErr;
+
+        setStatus("");
+        setOk(overwrite ? "✅ Overwrote latest dataset successfully." : "✅ Saved.");
+      } catch (e) {
+        setStatus("");
+        setErr(e.message || String(e));
+      }
     });
 
-    // Initial
-    refreshAuthUI().catch(() => {});
+    document.getElementById("loadDb").addEventListener("click", async () => {
+      try {
+        showAppMsg("err", "");
+        showAppMsg("ok", "");
+        const user = await requireUser();
+        const dataset = getDatasetName();
+        setStatus("Loading latest…");
+        const { data, error } = await sb
+          .from(TABLE_NAME)
+          .select("rows")
+          .eq("user_id", user.id)
+          .eq("dataset", dataset)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        if (error) throw error;
+        const rows = data?.[0]?.rows;
+        if (!rows) throw new Error("No saved data found for this dataset.");
+        hot.loadData(rows);
+        setStatus("");
+        setOk("✅ Loaded latest.");
+      } catch (e) {
+        setStatus("");
+        setErr(e.message || String(e));
+      }
+    });
+
+    document.getElementById("copyJson").addEventListener("click", async () => {
+      try {
+        showAppMsg("err", "");
+        showAppMsg("ok", "");
+        const user = await requireUser();
+        const dataset = getDatasetName();
+        setStatus("Fetching…");
+        const { data, error } = await sb
+          .from(TABLE_NAME)
+          .select("rows")
+          .eq("user_id", user.id)
+          .eq("dataset", dataset)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        if (error) throw error;
+        const rows = data?.[0]?.rows;
+        if (!rows) throw new Error("No saved data found for this dataset.");
+        await navigator.clipboard.writeText(JSON.stringify(rows));
+        setStatus("");
+        setOk("✅ Copied JSON to clipboard.");
+      } catch (e) {
+        setStatus("");
+        setErr(e.message || String(e));
+      }
+    });
+
+    document.getElementById("clearGrid").addEventListener("click", () => {
+      hot.loadData(Array.from({ length: 20 }, () => Array.from({ length: 12 }, () => "")));
+      setOk("Cleared.");
+    });
+
+    sb.auth.onAuthStateChange(() => refreshAuthUI());
+    await refreshAuthUI();
   </script>
-
-  <!--
-    IMPORTANT (one-time DB change):
-    Add a dataset column to your table:
-
-    alter table public.grid_uploads
-    add column if not exists dataset text not null default 'default';
-
-    Your existing RLS policies (insert/select/delete) should still work.
-    For overwrite-by-delete to work, you need the "delete own uploads" policy (you already have it).
-  -->
 </body>
 </html>
