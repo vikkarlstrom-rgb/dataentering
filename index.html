@@ -423,7 +423,38 @@
 
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    const authView = document.getElementById("authView");
+    
+    // --- Auth helper (bypasses any stalled SDK request by calling Auth REST directly) ---
+    async function signInViaRest(email, password, timeoutMs = 15000) {
+      const url = `${SUPABASE_URL}/auth/v1/token?grant_type=password`;
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "apikey": SUPABASE_ANON_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email, password }),
+          signal: controller.signal,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const msg = data?.error_description || data?.error || data?.message || `HTTP ${res.status} ${res.statusText}`;
+          throw new Error(msg);
+        }
+        // Persist session in the SDK so the rest of the app works normally
+        await sb.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
+        return data;
+      } catch (e) {
+        if (e?.name === "AbortError") throw new Error("Auth request timed out (blocked network / extension / DNS).");
+        throw e;
+      } finally {
+        clearTimeout(t);
+      }
+    }
+const authView = document.getElementById("authView");
     const appView  = document.getElementById("appView");
 
     const emailEl = document.getElementById("email");
@@ -577,36 +608,24 @@
 
       showAuthMsg("ok", "Signing in…");
       try {
-        // Do not hard-fail on a timer (can false-trigger on slow networks / cold starts).
-        // Instead, show a "still working" hint after 10s while we keep waiting.
+        // Show a hint after 10s while we keep waiting
         let slowTimer = setTimeout(() => {
-          showAuthMsg("ok", "Still signing in… (if this keeps happening, disable blockers for supabase.co / jsdelivr.net)");
+          showAuthMsg("ok", "Still signing in… (if this keeps happening, disable blockers for supabase.co / jsdelivr.net, or test in Incognito)");
         }, 10000);
 
-        const { data, error } = await sb.auth.signInWithPassword({ email, password });
+        await signInViaRest(email, password, 15000);
         clearTimeout(slowTimer);
 
-        if (error) {
-          const msg = String(error.message || error);
-          if (msg.toLowerCase().includes("email") && msg.toLowerCase().includes("confirm")) {
-            return showAuthMsg(
-              "err",
-              msg + " (Confirm in Supabase Auth → Users, or disable confirm-email temporarily.)"
-            );
-          }
-          return showAuthMsg("err", msg);
-        }
-
-        // success
         showAuthMsg("ok", "Signed in ✅");
         await refreshAuthUI();
       } catch (e) {
         console.error(e);
-        showAuthMsg("err", e?.message || String(e));
+        showAuthMsg("err", `Sign-in failed: ${e?.message || String(e)}`);
       }
     });
 
-    document.getElementById("signOutBtn").addEventListener("click", async () => {
+
+document.getElementById("signOutBtn").addEventListener("click", async () => {
       try {
         await sb.auth.signOut();
         setOk("Signed out.");
@@ -620,15 +639,37 @@
       try {
         showAuthMsg("err", "");
         showAuthMsg("ok", "");
+
+        // 1) Auth health (no auth needed)
+        const health = await fetch(`${SUPABASE_URL}/auth/v1/health`, {
+          headers: { apikey: SUPABASE_ANON_KEY },
+        });
+        if (!health.ok) throw new Error(`Auth health check failed: HTTP ${health.status}`);
+
+        // 2) REST reachability (401 is fine here if not signed in yet)
+        const rest = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+          headers: { apikey: SUPABASE_ANON_KEY },
+        });
+        if (![200, 401, 404].includes(rest.status)) {
+          throw new Error(`REST endpoint check returned HTTP ${rest.status}`);
+        }
+
+        // 3) Table access (requires RLS/policies; may error if not signed in)
         const { error } = await sb.from(TABLE_NAME).select("id").limit(1);
-        if (error) throw error;
-        setOk("✅ Connection OK.");
+        if (error && rest.status === 401) {
+          // ignore - expected if not signed in
+        } else if (error) {
+          throw error;
+        }
+
+        setOk("✅ Connection OK (auth + rest reachable).");
       } catch (e) {
         setErr(e.message || String(e));
       }
     });
 
-    // --- Handsontable
+
+// --- Handsontable
     const container = document.getElementById("grid");
     const hot = new Handsontable(container, {
       data: Array.from({ length: 20 }, () => Array.from({ length: 12 }, () => "")),
