@@ -502,58 +502,102 @@
     }
 
     async function refreshAuthUI() {
-      const { data } = await sb.auth.getUser();
-      const user = data?.user;
+      try {
+        // Prefer session (fast + reliable) then user
+        const { data: sessData, error: sessErr } = await sb.auth.getSession();
+        if (sessErr) console.warn("getSession error:", sessErr);
 
-      if (user) {
-        whoamiEl.textContent = user.email || user.id;
-        document.getElementById("signOutBtn").style.display = "inline-block";
-        authView.classList.add("hidden");
-        appView.classList.remove("hidden");
-        showAuthMsg("ok", "");
-        showAuthMsg("err", "");
-        setOk("✅ Signed in successfully.");
-      } else {
-        whoamiEl.textContent = "Not signed in";
-        document.getElementById("signOutBtn").style.display = "none";
-        appView.classList.add("hidden");
-        authView.classList.remove("hidden");
-        showAppMsg("ok", "");
-        showAppMsg("err", "");
+        const session = sessData?.session || null;
+        const email = session?.user?.email || "";
+
+        if (session && session.user) {
+          whoamiPill.textContent = email || "Signed in";
+          whoamiPill.classList.add("ok");
+          signOutBtn.style.display = "inline-block";
+          signInBtn.style.display = "none";
+          signUpBtn.style.display = "none";
+          authOk.style.display = "none";
+          authErr.style.display = "none";
+
+          // Switch screens
+          authScreen.style.display = "none";
+          appScreen.style.display = "block";
+
+          // If email is unconfirmed, warn (shouldn't happen if session exists)
+          if (session.user.email_confirmed_at == null && session.user.confirmed_at == null) {
+            showOk("Signed in, but email appears unconfirmed. If anything fails, confirm email in Supabase Auth → Users.");
+          }
+          return;
+        }
+
+        // Not signed in
+        whoamiPill.textContent = "Not signed in";
+        whoamiPill.classList.remove("ok");
+        signOutBtn.style.display = "none";
+        signInBtn.style.display = "inline-block";
+        signUpBtn.style.display = "inline-block";
+
+        authScreen.style.display = "block";
+        appScreen.style.display = "none";
+      } catch (e) {
+        console.error(e);
+        showAuthMsg("err", "Auth UI error: " + (e?.message || e));
       }
     }
 
     // --- Auth
     document.getElementById("signUpBtn").addEventListener("click", async () => {
+      const email = emailEl.value.trim();
+      const password = passEl.value;
+      if (!email || !password) return showAuthMsg("err", "Enter email + password");
+
+      showAuthMsg("ok", "Creating account…");
       try {
-        showAuthMsg("err", "");
-        showAuthMsg("ok", "");
-        const email = emailEl.value.trim();
-        const password = passEl.value;
-        if (!email || !password) throw new Error("Enter email + password.");
-        const { error } = await sb.auth.signUp({ email, password });
-        if (error) throw error;
-        setOk("✅ Sign-up OK. If email confirmation is enabled, check your inbox, then sign in.");
+        const { data, error } = await sb.auth.signUp({ email, password });
+        if (error) return showAuthMsg("err", error.message);
+
+        // If confirm-email is enabled, Supabase will create the user but block sign-in until confirmed.
+        const needsConfirm = !data?.session;
+        if (needsConfirm) {
+          showAuthMsg("ok", "Sign-up OK. Check your inbox to confirm email, then sign in. (Or temporarily disable: Auth → Sign in / Providers → Email → Confirm email)");
+        } else {
+          showAuthMsg("ok", "Signed up + signed in ✅");
+          await refreshAuthUI();
+        }
       } catch (e) {
-        setErr(e.message || String(e));
+        console.error(e);
+        showAuthMsg("err", e?.message || String(e));
       }
     });
 
     document.getElementById("signInBtn").addEventListener("click", async () => {
+      const email = emailEl.value.trim();
+      const password = passEl.value;
+      if (!email || !password) return showAuthMsg("err", "Enter email + password");
+
+      showAuthMsg("ok", "Signing in…");
       try {
-        showAuthMsg("err", "");
-        showAuthMsg("ok", "");
-        const email = emailEl.value.trim();
-        const password = passEl.value;
-        if (!email || !password) throw new Error("Enter email + password.");
-        setStatus("Signing in…");
-        const { error } = await sb.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        setStatus("");
+        // Add a timeout so the UI never gets stuck
+        const signInPromise = sb.auth.signInWithPassword({ email, password });
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Sign-in timed out. Check network / blockers, then try again.")), 15000)
+        );
+
+        const { data, error } = await Promise.race([signInPromise, timeoutPromise]);
+        if (error) {
+          const msg = String(error.message || error);
+          if (msg.toLowerCase().includes("email") && msg.toLowerCase().includes("confirm")) {
+            return showAuthMsg("err", msg + " (Confirm in Supabase Auth → Users, or disable confirm-email temporarily.)");
+          }
+          return showAuthMsg("err", msg);
+        }
+
+        // success
+        showAuthMsg("ok", "Signed in ✅");
         await refreshAuthUI();
       } catch (e) {
-        setStatus("");
-        setErr(e.message || String(e));
+        console.error(e);
+        showAuthMsg("err", e?.message || String(e));
       }
     });
 
