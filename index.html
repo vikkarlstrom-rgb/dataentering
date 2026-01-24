@@ -3,807 +3,662 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Data input • Excel Paste Grid</title>
+  <title>Data input</title>
 
-  <!-- Handsontable Community Edition (CDN) -->
+  <!-- Handsontable (grid) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@14.5.0/dist/handsontable.full.min.css">
   <script src="https://cdn.jsdelivr.net/npm/handsontable@14.5.0/dist/handsontable.full.min.js"></script>
 
   <style>
-    :root {
-      --bg1: #f3f5ff;
-      --bg2: #ffe7f6;
-      --bg3: #e6fff7;
-      --ink: #0b0f1a;
-      --muted: rgba(11, 15, 26, .65);
-      --card: rgba(255,255,255,.72);
-      --border: rgba(11, 15, 26, .12);
-      --shadow: 0 18px 60px rgba(11, 15, 26, .12);
-      --shadow2: 0 10px 30px rgba(11, 15, 26, .10);
-      --btn: #0b0f1a;
-      --btnInk: #fff;
-      --btnGhost: rgba(11, 15, 26, .06);
-      --okBg: rgba(16, 185, 129, .14);
-      --okBorder: rgba(16, 185, 129, .35);
-      --errBg: rgba(239, 68, 68, .12);
-      --errBorder: rgba(239, 68, 68, .32);
+    :root{
+      --ink:#0b0f1a;
+      --ink2:#334155;
+      --muted:#64748b;
+      --card:#ffffff;
+      --stroke:rgba(15,23,42,.12);
+      --shadow:0 20px 60px rgba(15,23,42,.10);
+      --radius:22px;
+      --btn:#0b0f1a;
+      --btnText:#ffffff;
+      --btn2:#eef2f7;
+      --okBg:#e9fbf0;
+      --okBd:#b7f0cb;
+      --okTx:#11663a;
+      --errBg:#fff1f1;
+      --errBd:#f7b1b1;
+      --errTx:#7a1f1f;
     }
-
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      color: var(--ink);
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color:var(--ink);
       background:
-        radial-gradient(1100px 600px at 15% 20%, var(--bg2), transparent 65%),
-        radial-gradient(900px 550px at 75% 30%, var(--bg1), transparent 70%),
-        radial-gradient(900px 650px at 55% 95%, var(--bg3), transparent 65%),
-        #fbfbff;
-      min-height: 100vh;
+        radial-gradient(900px 420px at 20% 25%, rgba(236,72,153,.16), transparent 60%),
+        radial-gradient(900px 420px at 70% 40%, rgba(168,85,247,.18), transparent 55%),
+        radial-gradient(900px 520px at 55% 100%, rgba(34,211,238,.16), transparent 60%),
+        #f7f8fb;
+      min-height:100vh;
+    }
+    .topbar{
+      position:sticky; top:0; z-index:10;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:16px 20px;
+      background:rgba(247,248,251,.75);
+      backdrop-filter: blur(10px);
+      border-bottom:1px solid rgba(15,23,42,.08);
+    }
+    .brand{display:flex; align-items:center; gap:12px; font-weight:700;}
+    .logo{
+      width:34px; height:34px; border-radius:12px;
+      display:grid; place-items:center;
+      background:#0b0f1a; color:#fff; font-weight:800;
+      box-shadow: 0 10px 24px rgba(15,23,42,.18);
+    }
+    .pills{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px; border:1px solid var(--stroke);
+      border-radius:999px; font-size:12px; color:var(--ink2);
+      background:rgba(255,255,255,.75);
     }
 
-    .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      backdrop-filter: blur(14px);
-      background: rgba(255,255,255,.55);
-      border-bottom: 1px solid var(--border);
+    .wrap{max-width: 1200px; margin: 22px auto; padding: 0 18px 40px;}
+
+    .grid2{
+      display:grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap:20px;
+      align-items:stretch;
     }
-    .topbar-inner {
-      max-width: 1180px;
-      margin: 0 auto;
-      padding: 14px 18px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      justify-content: space-between;
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-    }
-    .brand-badge {
-      width: 34px; height: 34px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, rgba(0,0,0,.95), rgba(0,0,0,.75));
-      color: #fff;
-      display: grid;
-      place-items: center;
-      box-shadow: var(--shadow2);
-      font-weight: 900;
-    }
-    .topbar-meta {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      color: var(--muted);
-      font-size: 13px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,.7);
-      padding: 7px 10px;
-      border-radius: 999px;
-      font-size: 13px;
-      color: var(--muted);
-      max-width: 360px;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    @media (max-width: 980px){
+      .grid2{grid-template-columns:1fr;}
     }
 
-    .wrap {
-      max-width: 1180px;
-      margin: 0 auto;
-      padding: 26px 18px 40px;
-    }
-
-    .grid2 {
-      display: grid;
-      grid-template-columns: 1.1fr .9fr;
-      gap: 22px;
-      align-items: stretch;
-    }
-    @media (max-width: 980px) {
-      .grid2 { grid-template-columns: 1fr; }
-    }
-
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 22px;
+    .card{
+      background:rgba(255,255,255,.92);
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
       box-shadow: var(--shadow);
-    }
-    .card-inner { padding: 22px; }
-
-    .hero {
-      padding: 34px 28px;
-      min-height: 420px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-    .hero h1 {
-      font-size: clamp(42px, 4.6vw, 64px);
-      line-height: .92;
-      letter-spacing: -0.04em;
-      margin: 0 0 14px;
-    }
-    .hero p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 16px;
-      line-height: 1.6;
-      max-width: 52ch;
-    }
-    .hero-note {
-      margin-top: 20px;
-      padding: 12px 14px;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,.6);
-      color: var(--muted);
-      font-size: 13px;
+      padding: 22px;
+      overflow:hidden;
     }
 
-    .auth-card .title {
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      margin: 0 0 10px;
-      font-size: 18px;
+    .badge{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.8);
+      font-size:12px;
+      color:var(--ink2);
     }
-    .field-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
+    .heroTitle{
+      font-size:64px;
+      line-height:.92;
+      margin:18px 0 12px;
+      letter-spacing:-.04em;
     }
-    @media (max-width: 520px) {
-      .field-row { grid-template-columns: 1fr; }
+    @media (max-width: 980px){
+      .heroTitle{font-size:52px;}
+    }
+    .heroSub{color:var(--muted); font-size:16px; line-height:1.55; max-width: 60ch;}
+
+    .tip{
+      margin-top:18px;
+      padding:12px 12px;
+      border-radius:16px;
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.75);
+      color:var(--ink2);
+      font-size:13px;
     }
 
-    label {
-      display: block;
-      font-size: 12px;
-      color: var(--muted);
-      margin: 10px 0 6px;
+    h2{margin:0 0 14px; font-size:22px; letter-spacing:-.02em;}
+    label{display:block; font-size:12px; color:var(--muted); margin:10px 0 6px;}
+    input{
+      width:100%;
+      border:1px solid var(--stroke);
+      border-radius:14px;
+      padding:12px 12px;
+      font-size:14px;
+      background:#fff;
+      outline:none;
     }
-    input[type="email"], input[type="password"], input[type="text"] {
-      width: 100%;
-      padding: 12px 12px;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,.75);
-      outline: none;
-      font-size: 14px;
-    }
-    input:focus {
-      border-color: rgba(11,15,26,.28);
-      box-shadow: 0 0 0 4px rgba(11,15,26,.06);
+    input:focus{ box-shadow: 0 0 0 5px rgba(168,85,247,.12); border-color: rgba(168,85,247,.35); }
+
+    .row{display:flex; gap:12px;}
+    .row > *{flex:1;}
+    @media (max-width: 560px){
+      .row{flex-direction:column;}
     }
 
-    .btn-row {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-top: 12px;
+    .btnRow{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;}
+    button{
+      border:1px solid var(--stroke);
+      border-radius:999px;
+      padding:10px 14px;
+      font-size:14px;
+      cursor:pointer;
+      background:var(--btn2);
+      color:var(--ink);
     }
-    button {
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,.7);
-      color: var(--ink);
-      padding: 10px 12px;
-      border-radius: 14px;
-      font-weight: 650;
-      cursor: pointer;
-      transition: transform .06s ease, background .2s ease, border-color .2s ease;
+    button.primary{
+      background:var(--btn);
+      color:var(--btnText);
+      border-color: rgba(0,0,0,.15);
     }
-    button:hover { transform: translateY(-1px); }
-    button:active { transform: translateY(0px); }
-    button.primary {
-      background: var(--btn);
-      color: var(--btnInk);
-      border-color: rgba(11,15,26,.15);
-    }
-    button.ghost { background: var(--btnGhost); }
-    button[disabled] { opacity: .55; cursor: not-allowed; transform: none; }
+    button.ghost{ background:transparent; }
+    button:disabled{ opacity:.55; cursor:not-allowed; }
 
-    .app-head {
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: 14px;
-      flex-wrap: wrap;
-      margin-bottom: 14px;
-    }
-    .app-title { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
-    .app-sub { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+    .subtle{color:var(--muted); font-size:13px; margin-top:8px;}
 
-    .toolbar {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 14px;
-      align-items: end;
-      margin: 10px 0 14px;
+    .msg{
+      margin-top:14px;
+      padding:12px 14px;
+      border-radius:16px;
+      border:1px solid var(--stroke);
+      display:none;
+      font-size:14px;
     }
-    @media (max-width: 820px) {
-      .toolbar { grid-template-columns: 1fr; }
-    }
-    .toolbar-left {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      align-items: end;
-    }
-    @media (max-width: 520px) {
-      .toolbar-left { grid-template-columns: 1fr; }
-    }
-    .inline {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 13px;
-      color: var(--muted);
-      user-select: none;
-    }
-    .toggle input {
-      width: 18px;
-      height: 18px;
-      accent-color: #0b0f1a;
-    }
-    .hint { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+    .msg.ok{ display:block; background:var(--okBg); border-color:var(--okBd); color:var(--okTx); }
+    .msg.err{ display:block; background:var(--errBg); border-color:var(--errBd); color:var(--errTx); }
 
-    #grid {
-      width: 100%;
-      border-radius: 16px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,.65);
+    .appHeader{
+      display:flex; align-items:flex-end; justify-content:space-between; gap:14px; flex-wrap:wrap;
+      margin-bottom: 10px;
+    }
+    .appHeader h2{margin:0;}
+
+    .toolbar{
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+      margin: 10px 0 12px;
     }
 
-    .msg {
-      margin-top: 12px;
-      padding: 12px 14px;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,.6);
-      color: var(--muted);
-      font-size: 14px;
+    .check{
+      display:flex; align-items:center; gap:10px;
+      padding:10px 12px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.75);
+      font-size:13px;
+      color:var(--ink2);
     }
-    #okBox {
-      display: none;
-      background: var(--okBg);
-      border-color: var(--okBorder);
-      color: rgba(6, 95, 70, 1);
-      font-weight: 650;
-    }
-    #errorBox {
-      display: none;
-      background: var(--errBg);
-      border-color: var(--errBorder);
-      color: rgba(153, 27, 27, 1);
-      font-weight: 650;
-    }
-    .hidden { display: none !important; }
+    .check input{ width:auto; margin:0; }
+
+    #grid{ width:100%; }
+    .ht_master{ border-radius:16px; overflow:hidden; }
   </style>
 </head>
-
 <body>
   <div class="topbar">
-    <div class="topbar-inner">
-      <div class="brand">
-        <div class="brand-badge">D</div>
-        <div>Data input</div>
-      </div>
-      <div class="topbar-meta">
-        <span class="pill">Project: https://bfvidvslxcofuaoylhli.supabase.co • Table: <b>grid_uploads</b></span>
-        <span class="pill" id="whoami">Not signed in</span>
-      </div>
+    <div class="brand">
+      <div class="logo">D</div>
+      <div>Data input</div>
+    </div>
+    <div class="pills">
+      <span class="pill" id="projectPill">Project: …</span>
+      <span class="pill" id="whoamiPill">Not signed in</span>
     </div>
   </div>
 
   <div class="wrap">
+
+    <!-- AUTH VIEW -->
     <section id="authView" class="grid2">
-      <div class="card hero">
-        <div>
-          <div class="pill" style="width:fit-content; margin-bottom:14px;">Paste Excel • Save to Supabase</div>
-          <h1>Process.<br/>Upload.<br/>Own your data.</h1>
-          <p>
-            Sign in to upload spreadsheet-style tables straight into Supabase.
-            Use dataset names like <b>Reporting_structure</b>, <b>Financial_data</b>, or <b>HR_data</b>
-            so you can load/overwrite each dataset independently.
-          </p>
-          <div class="hero-note">
-            Tip: If Sign up requires email confirmation, turn it off temporarily in
-            <b>Authentication → Sign in / Providers → Email</b> (Confirm email).
-          </div>
-        </div>
-        <div class="pill" style="width:fit-content;">Secure via Supabase Auth</div>
-      </div>
-
-      <div class="card auth-card">
-        <div class="card-inner">
-          <div class="title">Sign in</div>
-
-          <div class="field-row">
-            <div>
-              <label>Email</label>
-              <input id="email" type="email" placeholder="you@company.com" autocomplete="username" />
-            </div>
-            <div>
-              <label>Password</label>
-              <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
-            </div>
-          </div>
-
-          <div class="btn-row">
-            <button type="button" id="signInBtn" class="primary">Sign in</button>
-            <button type="button" id="signUpBtn" class="ghost">Sign up</button>
-            <button type="button" id="testConnBtn">Test Supabase connection</button>
-          </div>
-
-          <div class="hint">After signing in, you’ll be taken to the upload screen.</div>
-
-          <div id="okBox" class="msg"></div>
-          <div id="errorBox" class="msg"></div>
-        </div>
-      </div>
-    </section>
-
-    <section id="appView" class="hidden">
       <div class="card">
-        <div class="card-inner">
-          <div class="app-head">
-            <div>
-              <h2 class="app-title">Upload</h2>
-              <p class="app-sub">Paste from Excel into the grid, then save into Supabase.</p>
-            </div>
-            <div class="inline">
-              <button type="button" id="signOutBtn" class="ghost">Sign out</button>
-            </div>
-          </div>
-
-          <div class="toolbar">
-            <div class="toolbar-left">
-              <div>
-                <label>Dataset name</label>
-                <input id="datasetName" type="text" value="Reporting_structure" />
-                <div class="hint">Used for Load/Overwrite. Saved into DB column <b>dataset</b>.</div>
-              </div>
-              <div>
-                <label>Actions</label>
-                <div class="inline">
-                  <button type="button" id="downloadCsv">Download CSV</button>
-                  <button type="button" id="saveDb" class="primary">Save to Supabase</button>
-                </div>
-                <div class="inline" style="margin-top:10px;">
-                  <label class="toggle"><input id="overwriteToggle" type="checkbox" /> Overwrite my latest (same dataset)</label>
-                  <button type="button" id="loadDb" class="ghost">Load my latest (same dataset)</button>
-                  <button type="button" id="copyJson" class="ghost">Copy my latest JSON</button>
-                  <button type="button" id="clearGrid">Clear grid</button>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <div id="status" class="hint"></div>
-            </div>
-          </div>
-
-          <div class="hint">Tip: click a cell, then paste (Ctrl/Cmd+V). You can paste many cells at once.</div>
-          <div id="grid" style="margin-top:12px;"></div>
-
-          <div id="okBoxApp" class="msg" style="display:none; background: var(--okBg); border-color: var(--okBorder); color: rgba(6,95,70,1); font-weight:650;"></div>
-          <div id="errorBoxApp" class="msg" style="display:none; background: var(--errBg); border-color: var(--errBorder); color: rgba(153,27,27,1); font-weight:650;"></div>
+        <span class="badge">Paste Excel · Save to Supabase</span>
+        <div class="heroTitle">Process.<br>Upload.<br>Own your data.</div>
+        <div class="heroSub">
+          Sign in to upload spreadsheet-style tables straight into Supabase. Use dataset names like
+          <b>Reporting_structure</b>, <b>Financial_data</b>, or <b>HR_data</b> so you can load/overwrite each dataset independently.
         </div>
+        <div class="tip">
+          <b>Tip:</b> If Sign up requires email confirmation, turn it off temporarily in
+          <b>Authentication → Sign in / Providers → Email</b> (Confirm email).
+        </div>
+        <div class="badge" style="margin-top:14px;">Secure via Supabase Auth</div>
+      </div>
+
+      <div class="card">
+        <h2>Sign in</h2>
+        <div class="row">
+          <div>
+            <label>Email</label>
+            <input id="email" type="email" placeholder="you@company.com" autocomplete="username" />
+          </div>
+          <div>
+            <label>Password</label>
+            <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+          </div>
+        </div>
+
+        <div class="btnRow">
+          <button class="primary" id="signInBtn" type="button">Sign in</button>
+          <button id="signUpBtn" type="button">Sign up</button>
+          <button class="ghost" id="testConnBtn" type="button">Test Supabase connection</button>
+        </div>
+        <div class="subtle">After signing in, you’ll be taken to the upload screen.</div>
+
+        <div id="authMsg" class="msg"></div>
       </div>
     </section>
+
+    <!-- APP VIEW -->
+    <section id="appView" style="display:none;">
+      <div class="card" style="padding:20px;">
+        <div class="appHeader">
+          <div>
+            <h2>Upload</h2>
+            <div class="subtle">Paste from Excel into the grid, then save to Supabase.</div>
+          </div>
+          <div class="btnRow" style="margin:0;">
+            <button id="signOutBtn" type="button">Sign out</button>
+            <button class="ghost" id="testConnBtn2" type="button">Test connection</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Dataset name</label>
+            <input id="dataset" type="text" value="Reporting_structure" placeholder="Reporting_structure" />
+            <div class="subtle">Used for Load/Overwrite. Saved into DB column <b>dataset</b>.</div>
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <div class="check">
+              <input type="checkbox" id="overwrite" />
+              Overwrite my latest (same dataset)
+            </div>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <button class="primary" id="saveBtn" type="button">Save to Supabase</button>
+          <button id="loadBtn" type="button">Load my latest (same dataset)</button>
+          <button id="copyJsonBtn" type="button">Copy my latest JSON</button>
+          <button id="downloadBtn" type="button">Download CSV</button>
+          <button id="clearBtn" type="button">Clear grid</button>
+        </div>
+
+        <div class="subtle" style="margin: 4px 0 10px;">Tip: click a cell, then paste (Ctrl/Cmd+V). You can paste many cells at once.</div>
+
+        <div id="grid"></div>
+
+        <div id="appMsg" class="msg" style="margin-top:12px;"></div>
+      </div>
+    </section>
+
   </div>
 
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
+    // =========================
+    // CONFIG
+    // =========================
     const SUPABASE_URL = "https://bfvidvslxcofuaoylhli.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_mLe7GSD1JP-1tYK1k09ZQg_mLydwaON";
-    const TABLE_NAME = "grid_uploads";
+    const TABLE_NAME = "grid_uploads"; // your table
 
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    
-    // --- Auth helper (bypasses any stalled SDK request by calling Auth REST directly) ---
-    async function signInViaRest(email, password, timeoutMs = 15000) {
-      const url = `${SUPABASE_URL}/auth/v1/token?grant_type=password`;
-      const controller = new AbortController();
-      const t = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        const res = await fetch(url, {
-          method: "POST",
-          headers: {
-            "apikey": SUPABASE_ANON_KEY,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email, password }),
-          signal: controller.signal,
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          const msg = data?.error_description || data?.error || data?.message || `HTTP ${res.status} ${res.statusText}`;
-          throw new Error(msg);
-        }
-        // Persist session in the SDK so the rest of the app works normally
-        await sb.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
-        return data;
-      } catch (e) {
-        if (e?.name === "AbortError") throw new Error("Auth request timed out (blocked network / extension / DNS).");
-        throw e;
-      } finally {
-        clearTimeout(t);
-      }
+    // =========================
+    // HELPERS
+    // =========================
+    const $ = (id) => document.getElementById(id);
+
+    const authView = $("authView");
+    const appView  = $("appView");
+
+    const whoamiPill = $("whoamiPill");
+    const projectPill = $("projectPill");
+
+    const authMsg = $("authMsg");
+    const appMsg  = $("appMsg");
+
+    const signInBtn = $("signInBtn");
+    const signUpBtn = $("signUpBtn");
+    const signOutBtn = $("signOutBtn");
+
+    projectPill.textContent = `Project: ${SUPABASE_URL} · Table: ${TABLE_NAME}`;
+
+    function showMsg(el, kind, text){
+      el.className = `msg ${kind}`;
+      el.textContent = text;
+      el.style.display = "block";
     }
-const authView = document.getElementById("authView");
-    const appView  = document.getElementById("appView");
-
-    const emailEl = document.getElementById("email");
-    const passEl  = document.getElementById("password");
-    const datasetEl = document.getElementById("datasetName");
-
-    const whoamiEl = document.getElementById("whoami");
-    const statusEl = document.getElementById("status");
-
-    const okBoxAuth = document.getElementById("okBox");
-    const errBoxAuth = document.getElementById("errorBox");
-    const okBoxApp = document.getElementById("okBoxApp");
-    const errBoxApp = document.getElementById("errorBoxApp");
-
-    function showAuthMsg(type, msg) {
-      okBoxAuth.style.display = "none";
-      errBoxAuth.style.display = "none";
-      if (!msg) return;
-      if (type === "ok") {
-        okBoxAuth.textContent = msg;
-        okBoxAuth.style.display = "block";
-      } else {
-        errBoxAuth.textContent = msg;
-        errBoxAuth.style.display = "block";
-      }
+    function clearMsg(el){
+      el.style.display = "none";
+      el.textContent = "";
+      el.className = "msg";
     }
 
-    function showAppMsg(type, msg) {
-      okBoxApp.style.display = "none";
-      errBoxApp.style.display = "none";
-      if (!msg) return;
-      if (type === "ok") {
-        okBoxApp.textContent = msg;
-        okBoxApp.style.display = "block";
-      } else {
-        errBoxApp.textContent = msg;
-        errBoxApp.style.display = "block";
-      }
+    function withTimeout(promise, ms, label){
+      let t;
+      const timeout = new Promise((_, reject)=>{
+        t = setTimeout(()=>reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+      });
+      return Promise.race([promise, timeout]).finally(()=>clearTimeout(t));
     }
 
-    function setOk(msg) {
-      if (!appView.classList.contains("hidden")) showAppMsg("ok", msg);
-      else showAuthMsg("ok", msg);
-    }
-    function setErr(msg) {
-      if (!appView.classList.contains("hidden")) showAppMsg("err", msg);
-      else showAuthMsg("err", msg);
-    }
-    function setStatus(msg) {
-      statusEl.textContent = msg || "";
-    }
-
-    function getDatasetName() {
-      const v = (datasetEl?.value || "").trim();
-      return v || "default";
-    }
-
-    function rowsFromGrid() {
-      return hot.getData();
-    }
-
-    function rowsToCSV(rows) {
-      return rows.map(r => r.map(cell => {
-        const s = (cell ?? "").toString();
-        const escaped = s.includes('"') ? s.replaceAll('"','""') : s;
-        if (/[",\n\r]/.test(escaped)) return `"${escaped}"`;
-        return escaped;
-      }).join(",")).join("\n");
-    }
-
-    async function requireUser() {
-      const { data, error } = await sb.auth.getUser();
+    async function getUser(){
+      const { data: { user }, error } = await sb.auth.getUser();
       if (error) throw error;
-      if (!data.user) throw new Error("Not signed in.");
-      return data.user;
+      return user;
     }
 
-    async function refreshAuthUI() {
-      try {
-        // Prefer session (fast + reliable) then user
-        const { data: sessData, error: sessErr } = await sb.auth.getSession();
-        if (sessErr) console.warn("getSession error:", sessErr);
-
-        const session = sessData?.session || null;
-        const email = session?.user?.email || "";
-
-        if (session && session.user) {
-          whoamiPill.textContent = email || "Signed in";
-          whoamiPill.classList.add("ok");
-          signOutBtn.style.display = "inline-block";
-          signInBtn.style.display = "none";
-          signUpBtn.style.display = "none";
-          authOk.style.display = "none";
-          authErr.style.display = "none";
-
-          // Switch screens
-          authScreen.style.display = "none";
-          appScreen.style.display = "block";
-
-          // If email is unconfirmed, warn (shouldn't happen if session exists)
-          if (session.user.email_confirmed_at == null && session.user.confirmed_at == null) {
-            showOk("Signed in, but email appears unconfirmed. If anything fails, confirm email in Supabase Auth → Users.");
-          }
-          return;
-        }
-
-        // Not signed in
-        whoamiPill.textContent = "Not signed in";
-        whoamiPill.classList.remove("ok");
-        signOutBtn.style.display = "none";
-        signInBtn.style.display = "inline-block";
-        signUpBtn.style.display = "inline-block";
-
-        authScreen.style.display = "block";
-        appScreen.style.display = "none";
-      } catch (e) {
-        console.error(e);
-        showAuthMsg("err", "Auth UI error: " + (e?.message || e));
-      }
+    function normalizeDatasetName(s){
+      return String(s ?? "").trim();
     }
 
-    // --- Auth
-    document.getElementById("signUpBtn").addEventListener("click", async () => {
-      const email = emailEl.value.trim();
-      const password = passEl.value;
-      if (!email || !password) return showAuthMsg("err", "Enter email + password");
-
-      showAuthMsg("ok", "Creating account…");
-      try {
-        const { data, error } = await sb.auth.signUp({ email, password });
-        if (error) return showAuthMsg("err", error.message);
-
-        // If confirm-email is enabled, Supabase will create the user but block sign-in until confirmed.
-        const needsConfirm = !data?.session;
-        if (needsConfirm) {
-          showAuthMsg("ok", "Sign-up OK. Check your inbox to confirm email, then sign in. (Or temporarily disable: Auth → Sign in / Providers → Email → Confirm email)");
-        } else {
-          showAuthMsg("ok", "Signed up + signed in ✅");
-          await refreshAuthUI();
-        }
-      } catch (e) {
-        console.error(e);
-        showAuthMsg("err", e?.message || String(e));
-      }
-    });
-
-    document.getElementById("signInBtn").addEventListener("click", async () => {
-      const email = emailEl.value.trim();
-      const password = passEl.value;
-      if (!email || !password) return showAuthMsg("err", "Enter email + password");
-
-      showAuthMsg("ok", "Signing in…");
-      try {
-        // Show a hint after 10s while we keep waiting
-        let slowTimer = setTimeout(() => {
-          showAuthMsg("ok", "Still signing in… (if this keeps happening, disable blockers for supabase.co / jsdelivr.net, or test in Incognito)");
-        }, 10000);
-
-        await signInViaRest(email, password, 15000);
-        clearTimeout(slowTimer);
-
-        showAuthMsg("ok", "Signed in ✅");
-        await refreshAuthUI();
-      } catch (e) {
-        console.error(e);
-        showAuthMsg("err", `Sign-in failed: ${e?.message || String(e)}`);
-      }
-    });
-
-
-document.getElementById("signOutBtn").addEventListener("click", async () => {
-      try {
-        await sb.auth.signOut();
-        setOk("Signed out.");
-        await refreshAuthUI();
-      } catch (e) {
-        setErr(e.message || String(e));
-      }
-    });
-
-    document.getElementById("testConnBtn").addEventListener("click", async () => {
-      try {
-        showAuthMsg("err", "");
-        showAuthMsg("ok", "");
-
-        // 1) Auth health (no auth needed)
-        const health = await fetch(`${SUPABASE_URL}/auth/v1/health`, {
-          headers: { apikey: SUPABASE_ANON_KEY },
-        });
-        if (!health.ok) throw new Error(`Auth health check failed: HTTP ${health.status}`);
-
-        // 2) REST reachability (401 is fine here if not signed in yet)
-        const rest = await fetch(`${SUPABASE_URL}/rest/v1/`, {
-          headers: { apikey: SUPABASE_ANON_KEY },
-        });
-        if (![200, 401, 404].includes(rest.status)) {
-          throw new Error(`REST endpoint check returned HTTP ${rest.status}`);
-        }
-
-        // 3) Table access (requires RLS/policies; may error if not signed in)
-        const { error } = await sb.from(TABLE_NAME).select("id").limit(1);
-        if (error && rest.status === 401) {
-          // ignore - expected if not signed in
-        } else if (error) {
-          throw error;
-        }
-
-        setOk("✅ Connection OK (auth + rest reachable).");
-      } catch (e) {
-        setErr(e.message || String(e));
-      }
-    });
-
-
-// --- Handsontable
-    const container = document.getElementById("grid");
-    const hot = new Handsontable(container, {
-      data: Array.from({ length: 20 }, () => Array.from({ length: 12 }, () => "")),
+    // =========================
+    // GRID
+    // =========================
+    const hot = new Handsontable($("grid"), {
+      data: Handsontable.helper.createEmptySpreadsheetData(20, 12),
       rowHeaders: true,
       colHeaders: true,
       contextMenu: true,
       dropdownMenu: true,
-      licenseKey: "non-commercial-and-evaluation",
-      manualColumnResize: true,
-      manualRowResize: true,
-      minSpareRows: 1,
-      minSpareCols: 1,
+      filters: true,
+      licenseKey: "non-commercial-and-evaluation"
     });
 
-    // --- CSV download
-    document.getElementById("downloadCsv").addEventListener("click", () => {
-      const csv = rowsToCSV(rowsFromGrid());
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    function gridTo2dArray(){
+      const data = hot.getData();
+      let lastNonEmpty = data.length - 1;
+      while (lastNonEmpty >= 0){
+        const row = data[lastNonEmpty];
+        if (row && row.some(v => String(v ?? "").trim() !== "")) break;
+        lastNonEmpty--;
+      }
+      return data.slice(0, Math.max(1, lastNonEmpty + 1));
+    }
+
+    function toCSV(data){
+      const esc = (v) => {
+        const s = String(v ?? "");
+        if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+        return s;
+      };
+      return data.map(row => row.map(esc).join(",")).join("\n");
+    }
+
+    // =========================
+    // AUTH UI
+    // =========================
+    async function refreshAuthUI(){
+      try{
+        const { data: { session } } = await sb.auth.getSession();
+        const user = session?.user || null;
+
+        if (user){
+          whoamiPill.textContent = user.email || user.id;
+          authView.style.display = "none";
+          appView.style.display  = "block";
+        } else {
+          whoamiPill.textContent = "Not signed in";
+          authView.style.display = "grid";
+          appView.style.display  = "none";
+        }
+      } catch (e){
+        whoamiPill.textContent = "Not signed in";
+        authView.style.display = "grid";
+        appView.style.display  = "none";
+        showMsg(authMsg, "err", e?.message || String(e));
+      }
+    }
+
+    sb.auth.onAuthStateChange((_event, session)=>{
+      if (session?.user){
+        showMsg(appMsg, "ok", `✅ Logged in as ${session.user.email || session.user.id}`);
+      }
+      refreshAuthUI();
+    });
+
+    // =========================
+    // ACTIONS
+    // =========================
+    async function testConnection(){
+      clearMsg(authMsg); clearMsg(appMsg);
+      try{
+        // lightweight request: read 1 row from the table
+        const { error } = await withTimeout(
+          sb.from(TABLE_NAME).select("id").limit(1),
+          15000,
+          "Test connection"
+        );
+        if (error) throw error;
+        showMsg(authMsg, "ok", "✅ Connected to Supabase.");
+        showMsg(appMsg,  "ok", "✅ Connected to Supabase.");
+      } catch (e){
+        const msg = e?.message || String(e);
+        showMsg(authMsg, "err", msg);
+        showMsg(appMsg,  "err", msg);
+      }
+    }
+
+    async function signIn(){
+      clearMsg(authMsg);
+      signInBtn.disabled = true;
+      signUpBtn.disabled = true;
+
+      const email = $("email").value.trim();
+      const password = $("password").value;
+
+      // If CDN is blocked, the import/requests can hang. Give a clear timeout.
+      try{
+        if (!email || !password) throw new Error("Enter email + password.");
+
+        showMsg(authMsg, "ok", "Signing in…");
+        const { data, error } = await withTimeout(
+          sb.auth.signInWithPassword({ email, password }),
+          15000,
+          "Sign in"
+        );
+        if (error) throw error;
+
+        showMsg(authMsg, "ok", `✅ Signed in as ${data.user?.email || email}`);
+        await refreshAuthUI();
+      } catch (e){
+        showMsg(authMsg, "err", e?.message || String(e));
+      } finally {
+        signInBtn.disabled = false;
+        signUpBtn.disabled = false;
+      }
+    }
+
+    async function signUp(){
+      clearMsg(authMsg);
+      signInBtn.disabled = true;
+      signUpBtn.disabled = true;
+
+      const email = $("email").value.trim();
+      const password = $("password").value;
+      try{
+        if (!email || !password) throw new Error("Enter email + password.");
+
+        showMsg(authMsg, "ok", "Signing up…");
+        const { data, error } = await withTimeout(
+          sb.auth.signUp({ email, password }),
+          15000,
+          "Sign up"
+        );
+        if (error) throw error;
+
+        if (data?.user && !data?.session){
+          showMsg(authMsg, "ok", "✅ Sign-up OK. If email confirmation is enabled, confirm then sign in.");
+        } else {
+          showMsg(authMsg, "ok", `✅ Signed up and logged in as ${data?.user?.email || email}`);
+          await refreshAuthUI();
+        }
+      } catch (e){
+        showMsg(authMsg, "err", e?.message || String(e));
+      } finally {
+        signInBtn.disabled = false;
+        signUpBtn.disabled = false;
+      }
+    }
+
+    async function signOut(){
+      clearMsg(appMsg);
+      try{
+        await sb.auth.signOut();
+        showMsg(appMsg, "ok", "Signed out.");
+        await refreshAuthUI();
+      } catch(e){
+        showMsg(appMsg, "err", e?.message || String(e));
+      }
+    }
+
+    async function saveToSupabase(){
+      clearMsg(appMsg);
+      try{
+        const user = await getUser();
+        if (!user) throw new Error("Please sign in first.");
+
+        const dataset = normalizeDatasetName($("dataset").value);
+        if (!dataset) throw new Error("Dataset name is required.");
+
+        const rows = gridTo2dArray();
+        const overwrite = $("overwrite").checked;
+
+        if (overwrite){
+          // Find latest row for this user + dataset and delete it.
+          const { data: latest, error: qErr } = await sb
+            .from(TABLE_NAME)
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("dataset", dataset)
+            .order("created_at", { ascending:false })
+            .limit(1);
+          if (qErr) throw qErr;
+
+          const latestId = latest?.[0]?.id;
+          if (latestId){
+            const { error: dErr } = await sb
+              .from(TABLE_NAME)
+              .delete()
+              .eq("id", latestId);
+            if (dErr) throw dErr;
+          }
+        }
+
+        const { error: iErr } = await sb
+          .from(TABLE_NAME)
+          .insert({ user_id: user.id, dataset, rows });
+        if (iErr) throw iErr;
+
+        showMsg(appMsg, "ok", overwrite
+          ? `✅ Overwrote latest for dataset "${dataset}".`
+          : `✅ Saved new upload for dataset "${dataset}".`
+        );
+      } catch (e){
+        const msg = e?.message || String(e);
+        // Common gotcha: dataset column missing.
+        if (/column .*dataset/i.test(msg)){
+          showMsg(appMsg, "err", msg + "\n\nAdd a text column named 'dataset' to public.grid_uploads (or update TABLE_NAME)." );
+        } else {
+          showMsg(appMsg, "err", msg);
+        }
+      }
+    }
+
+    async function loadLatest(){
+      clearMsg(appMsg);
+      try{
+        const user = await getUser();
+        if (!user) throw new Error("Please sign in first.");
+
+        const dataset = normalizeDatasetName($("dataset").value);
+        if (!dataset) throw new Error("Dataset name is required.");
+
+        const { data, error } = await sb
+          .from(TABLE_NAME)
+          .select("rows, created_at")
+          .eq("user_id", user.id)
+          .eq("dataset", dataset)
+          .order("created_at", { ascending:false })
+          .limit(1);
+        if (error) throw error;
+
+        const rows = data?.[0]?.rows;
+        if (!rows) throw new Error(`No uploads found for dataset "${dataset}".`);
+
+        hot.loadData(rows);
+        showMsg(appMsg, "ok", `✅ Loaded latest for dataset "${dataset}".`);
+      } catch(e){
+        showMsg(appMsg, "err", e?.message || String(e));
+      }
+    }
+
+    async function copyLatestJSON(){
+      clearMsg(appMsg);
+      try{
+        const user = await getUser();
+        if (!user) throw new Error("Please sign in first.");
+
+        const dataset = normalizeDatasetName($("dataset").value);
+        if (!dataset) throw new Error("Dataset name is required.");
+
+        const { data, error } = await sb
+          .from(TABLE_NAME)
+          .select("rows, created_at")
+          .eq("user_id", user.id)
+          .eq("dataset", dataset)
+          .order("created_at", { ascending:false })
+          .limit(1);
+        if (error) throw error;
+
+        const rows = data?.[0]?.rows;
+        if (!rows) throw new Error(`No uploads found for dataset "${dataset}".`);
+
+        await navigator.clipboard.writeText(JSON.stringify(rows));
+        showMsg(appMsg, "ok", "✅ Copied JSON to clipboard.");
+      } catch(e){
+        showMsg(appMsg, "err", e?.message || String(e));
+      }
+    }
+
+    function downloadCSV(){
+      clearMsg(appMsg);
+      const csv = toCSV(gridTo2dArray());
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${getDatasetName()}.csv`;
+      a.download = `${normalizeDatasetName($("dataset").value) || "dataset"}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-    });
-
-    // --- Save / Load helpers
-    async function getLatestRowIdForUserAndDataset(userId, dataset) {
-      const { data, error } = await sb
-        .from(TABLE_NAME)
-        .select("id")
-        .eq("user_id", userId)
-        .eq("dataset", dataset)
-        .order("created_at", { ascending: false })
-        .limit(1);
-      if (error) throw error;
-      return data?.[0]?.id || null;
+      showMsg(appMsg, "ok", "✅ CSV downloaded.");
     }
 
-    document.getElementById("saveDb").addEventListener("click", async () => {
-      try {
-        setStatus("");
-        showAppMsg("err", "");
-        showAppMsg("ok", "");
+    function clearGrid(){
+      hot.loadData(Handsontable.helper.createEmptySpreadsheetData(20, 12));
+      showMsg(appMsg, "ok", "Cleared grid.");
+    }
 
-        const user = await requireUser();
-        const dataset = getDatasetName();
-        const overwrite = document.getElementById("overwriteToggle").checked;
+    // =========================
+    // HOOK UP EVENTS
+    // =========================
+    $("testConnBtn").addEventListener("click", testConnection);
+    $("testConnBtn2").addEventListener("click", testConnection);
 
-        const rows = rowsFromGrid();
-        const payload = { user_id: user.id, dataset, rows };
+    signInBtn.addEventListener("click", signIn);
+    signUpBtn.addEventListener("click", signUp);
+    signOutBtn.addEventListener("click", signOut);
 
-        setStatus(overwrite ? "Overwriting latest…" : "Saving…");
+    $("saveBtn").addEventListener("click", saveToSupabase);
+    $("loadBtn").addEventListener("click", loadLatest);
+    $("copyJsonBtn").addEventListener("click", copyLatestJSON);
+    $("downloadBtn").addEventListener("click", downloadCSV);
+    $("clearBtn").addEventListener("click", clearGrid);
 
-        if (overwrite) {
-          const latestId = await getLatestRowIdForUserAndDataset(user.id, dataset);
-          if (latestId) {
-            const { error: delErr } = await sb.from(TABLE_NAME).delete().eq("id", latestId);
-            if (delErr) throw delErr;
-          }
-        }
-
-        const { error: insErr } = await sb.from(TABLE_NAME).insert(payload);
-        if (insErr) throw insErr;
-
-        setStatus("");
-        setOk(overwrite ? "✅ Overwrote latest dataset successfully." : "✅ Saved.");
-      } catch (e) {
-        setStatus("");
-        setErr(e.message || String(e));
-      }
-    });
-
-    document.getElementById("loadDb").addEventListener("click", async () => {
-      try {
-        showAppMsg("err", "");
-        showAppMsg("ok", "");
-        const user = await requireUser();
-        const dataset = getDatasetName();
-        setStatus("Loading latest…");
-        const { data, error } = await sb
-          .from(TABLE_NAME)
-          .select("rows")
-          .eq("user_id", user.id)
-          .eq("dataset", dataset)
-          .order("created_at", { ascending: false })
-          .limit(1);
-        if (error) throw error;
-        const rows = data?.[0]?.rows;
-        if (!rows) throw new Error("No saved data found for this dataset.");
-        hot.loadData(rows);
-        setStatus("");
-        setOk("✅ Loaded latest.");
-      } catch (e) {
-        setStatus("");
-        setErr(e.message || String(e));
-      }
-    });
-
-    document.getElementById("copyJson").addEventListener("click", async () => {
-      try {
-        showAppMsg("err", "");
-        showAppMsg("ok", "");
-        const user = await requireUser();
-        const dataset = getDatasetName();
-        setStatus("Fetching…");
-        const { data, error } = await sb
-          .from(TABLE_NAME)
-          .select("rows")
-          .eq("user_id", user.id)
-          .eq("dataset", dataset)
-          .order("created_at", { ascending: false })
-          .limit(1);
-        if (error) throw error;
-        const rows = data?.[0]?.rows;
-        if (!rows) throw new Error("No saved data found for this dataset.");
-        await navigator.clipboard.writeText(JSON.stringify(rows));
-        setStatus("");
-        setOk("✅ Copied JSON to clipboard.");
-      } catch (e) {
-        setStatus("");
-        setErr(e.message || String(e));
-      }
-    });
-
-    document.getElementById("clearGrid").addEventListener("click", () => {
-      hot.loadData(Array.from({ length: 20 }, () => Array.from({ length: 12 }, () => "")));
-      setOk("Cleared.");
-    });
-
-    sb.auth.onAuthStateChange(() => refreshAuthUI());
-    await refreshAuthUI();
+    // Initial UI
+    refreshAuthUI();
   </script>
 </body>
 </html>
