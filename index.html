@@ -4,7 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Data input</title>
-  <meta name="description" content="Paste Excel-like data and save to Supabase." />
+  <meta name="description" content="Paste Excel-like data, run a monthly process, and save to Supabase." />
+
+  <!-- Handsontable (Excel-like grid) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@14.4.0/dist/handsontable.min.css">
+
   <style>
     :root{
       --bg:#f7f8fb;
@@ -18,7 +22,6 @@
       --radius:24px;
       --radius2:18px;
       --brand:#0b0f1a;
-      --brand-2:#111827;
       --ok:#16a34a;
       --warn:#f59e0b;
       --bad:#ef4444;
@@ -38,12 +41,8 @@
       color:var(--ink);
       background: linear-gradient(#f7f8fb, #f7f8fb) fixed;
     }
-    .bg{
-      position: fixed;
-      inset: 0;
-      background: var(--grad);
-      pointer-events: none;
-    }
+    .bg{ position:fixed; inset:0; background: var(--grad); pointer-events:none; }
+
     .topbar{
       position: sticky;
       top: 0;
@@ -56,6 +55,7 @@
       background: rgba(247,248,251,.72);
       backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--border);
+      gap: 14px;
     }
     .brand{
       display:flex;
@@ -63,6 +63,7 @@
       gap: 12px;
       font-weight: 800;
       letter-spacing: -0.02em;
+      white-space: nowrap;
     }
     .logo{
       width: 34px;
@@ -77,6 +78,29 @@
       line-height: 1;
       box-shadow: 0 10px 25px rgba(2,6,23,.18);
     }
+    .nav{
+      display:flex; align-items:center; gap: 8px; flex-wrap: wrap;
+    }
+    .navBtn{
+      appearance:none;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.75);
+      backdrop-filter: blur(10px);
+      color: var(--ink-soft);
+      font-weight: 800;
+      padding: 9px 12px;
+      border-radius: 999px;
+      cursor:pointer;
+      box-shadow: 0 10px 22px rgba(2,6,23,.06);
+      font-size: 13px;
+    }
+    .navBtn.active{
+      background: #0b0f1a;
+      color: #fff;
+      border-color:#0b0f1a;
+    }
+    .navBtn:disabled{ opacity:.55; cursor:not-allowed; }
+
     .chips{ display:flex; gap:10px; align-items:center; flex-wrap: wrap; justify-content:flex-end }
     .chip{
       border: 1px solid var(--border);
@@ -90,17 +114,20 @@
       gap: 8px;
       align-items:center;
       box-shadow: 0 8px 25px rgba(2,6,23,.06);
-      max-width: min(540px, 70vw);
+      max-width: min(520px, 60vw);
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
     }
-    .chip strong{ color: var(--ink); font-weight: 700 }
-    .wrap{
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 28px 22px 70px;
+    .chip strong{ color: var(--ink); font-weight: 800 }
+
+    .wrap{ max-width: 1200px; margin:0 auto; padding: 28px 22px 70px; }
+    @media (max-width: 980px){
+      .topbar{ padding: 0 14px; }
+      .wrap{ padding: 18px 14px 60px; }
+      .chip{ max-width: 70vw; }
     }
+
     .heroGrid{
       display:grid;
       grid-template-columns: 1.15fr .85fr;
@@ -108,11 +135,8 @@
       align-items: stretch;
       margin-top: 18px;
     }
-    @media (max-width: 980px){
-      .heroGrid{ grid-template-columns: 1fr; }
-      .topbar{ padding: 0 16px; }
-      .wrap{ padding: 18px 14px 60px; }
-    }
+    @media (max-width: 980px){ .heroGrid{ grid-template-columns: 1fr; } }
+
     .card{
       background: rgba(255,255,255,.82);
       border: 1px solid var(--border);
@@ -121,6 +145,7 @@
       overflow: hidden;
     }
     .cardInner{ padding: 26px; }
+
     .pill{
       display:inline-flex;
       align-items:center;
@@ -139,15 +164,9 @@
       margin: 16px 0 14px;
       font-weight: 900;
     }
-    @media (max-width: 980px){
-      .big{ font-size: 54px; }
-    }
-    .lead{
-      font-size: 16px;
-      color: var(--ink-soft);
-      line-height: 1.6;
-      max-width: 56ch;
-    }
+    @media (max-width: 980px){ .big{ font-size: 54px; } }
+
+    .lead{ font-size: 16px; color: var(--ink-soft); line-height: 1.6; max-width: 60ch; }
     .note{
       margin-top: 18px;
       padding: 14px 14px;
@@ -159,29 +178,19 @@
       background: rgba(255,255,255,.86);
     }
     .note strong{ color: var(--ink) }
-    .authTitle{
-      font-size: 22px;
-      font-weight: 800;
-      margin: 0 0 14px;
-      letter-spacing: -0.02em;
-    }
-    .grid2{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-    @media (max-width: 980px){
-      .grid2{ grid-template-columns: 1fr; }
-    }
+
+    .authTitle{ font-size: 22px; font-weight: 900; margin: 0 0 14px; letter-spacing: -0.02em; }
+    .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 980px){ .grid2{ grid-template-columns: 1fr; } }
     label{
       display:block;
       font-size: 12px;
       color: var(--muted);
-      font-weight: 700;
+      font-weight: 800;
       letter-spacing: .02em;
       margin: 8px 0 6px;
     }
-    input[type="email"], input[type="password"], input[type="text"]{
+    input[type="email"], input[type="password"], input[type="text"], input[type="number"], input[type="time"], select, textarea{
       width: 100%;
       border: 1px solid var(--border);
       border-radius: 14px;
@@ -189,11 +198,11 @@
       font-size: 14px;
       background: rgba(255,255,255,.95);
       outline: none;
+      font-family: var(--sans);
     }
-    input:focus{
-      box-shadow: var(--ring);
-      border-color: rgba(99,102,241,.35);
-    }
+    textarea{ min-height: 92px; resize: vertical; }
+    input:focus, select:focus, textarea:focus{ box-shadow: var(--ring); border-color: rgba(99,102,241,.35); }
+
     .btnRow{ display:flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
     .btn{
       appearance: none;
@@ -201,7 +210,7 @@
       border-radius: 999px;
       padding: 10px 14px;
       font-size: 14px;
-      font-weight: 700;
+      font-weight: 800;
       cursor: pointer;
       background: rgba(255,255,255,.92);
       box-shadow: 0 10px 22px rgba(2,6,23,.06);
@@ -212,12 +221,14 @@
       color: #fff;
       box-shadow: 0 16px 28px rgba(2,6,23,.20);
     }
-    .btn:disabled{ opacity: .55; cursor: not-allowed; }
-    .hint{
-      margin-top: 10px;
-      color: var(--muted);
-      font-size: 13px;
+    .btn.danger{
+      background: rgba(239,68,68,.10);
+      border-color: rgba(239,68,68,.30);
+      color:#991b1b;
     }
+    .btn:disabled{ opacity: .55; cursor: not-allowed; }
+
+    .hint{ margin-top: 10px; color: var(--muted); font-size: 13px; }
     .alert{
       margin-top: 14px;
       border-radius: 14px;
@@ -225,17 +236,19 @@
       border: 1px solid rgba(239,68,68,.35);
       background: rgba(239,68,68,.07);
       color: #991b1b;
-      font-weight: 700;
+      font-weight: 800;
       font-size: 13.5px;
       display:none;
+      white-space: pre-wrap;
     }
     .alert.ok{
       border-color: rgba(22,163,74,.35);
       background: rgba(22,163,74,.08);
       color: #14532d;
     }
-    .appShell{ display:none; margin-top: 22px; }
-    .appHeader{
+
+    .shell{ display:none; margin-top: 22px; }
+    .shellHeader{
       display:flex;
       flex-wrap: wrap;
       gap: 12px;
@@ -245,12 +258,6 @@
       border-bottom: 1px solid var(--border);
       background: rgba(255,255,255,.65);
     }
-    .appHeader .left{
-      display:flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
     .kpi{
       font-family: var(--mono);
       font-size: 12px;
@@ -259,28 +266,75 @@
       border: 1px solid var(--border);
       border-radius: 999px;
       padding: 8px 10px;
-      max-width: min(640px, 78vw);
+      max-width: min(720px, 78vw);
       overflow:hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .appBody{ padding: 18px 20px 20px; }
+    .shellBody{ padding: 18px 20px 22px; }
+
+    .twoCol{
+      display:grid;
+      grid-template-columns: .95fr 1.05fr;
+      gap: 16px;
+      align-items: start;
+    }
+    @media (max-width: 980px){ .twoCol{ grid-template-columns: 1fr; } }
+
+    .sectionTitle{
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+    .miniCard{
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(255,255,255,.9);
+      box-shadow: var(--shadow-soft);
+      padding: 14px;
+    }
+    .kv{
+      display:grid;
+      grid-template-columns: 140px 1fr;
+      gap: 10px;
+      font-size: 13.5px;
+      color: var(--ink-soft);
+      line-height: 1.35;
+    }
+    .kv .k{ color: var(--muted); font-weight: 800; }
+    .statusPill{
+      display:inline-flex; align-items:center; gap:8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 12.5px;
+      font-weight: 900;
+      color: var(--ink);
+      background: rgba(255,255,255,.9);
+    }
+    .dot{ width:10px; height:10px; border-radius: 999px; background: var(--muted); }
+    .dot.ok{ background: var(--ok); }
+    .dot.warn{ background: var(--warn); }
+    .dot.bad{ background: var(--bad); }
+
     .toolbar{
       display:flex;
-      align-items:center;
+      align-items:flex-end;
       justify-content: space-between;
       gap: 14px;
       flex-wrap: wrap;
       margin-bottom: 12px;
     }
-    .toolbar .controls{ display:flex; align-items:center; gap:10px; flex-wrap: wrap; }
+    .controls{ display:flex; align-items:flex-end; gap: 12px; flex-wrap: wrap; }
     .toggle{
       display:flex;
       gap:10px;
       align-items:center;
-      font-weight: 800;
+      font-weight: 900;
       color: var(--ink-soft);
       user-select: none;
+      margin-bottom: 6px;
     }
     .toggle input{ width: 16px; height: 16px; }
     .gridWrap{
@@ -290,16 +344,31 @@
       background: rgba(255,255,255,.9);
       box-shadow: var(--shadow-soft);
     }
-    #grid{
-      width: 100%;
-      min-height: 360px;
-    }
+    #grid{ width: 100%; min-height: 360px; }
     .small{ font-size: 12px; color: var(--muted); margin-top: 8px; }
-  </style>
+    .mono{ font-family: var(--mono); }
 
-  <!-- Handsontable (Excel-like grid) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@14.4.0/dist/handsontable.min.css">
+    details{
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px;
+      background: rgba(255,255,255,.82);
+    }
+    summary{ cursor:pointer; font-weight: 900; color: var(--ink-soft); }
+    pre{
+      margin: 10px 0 0;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(2,6,23,.04);
+      border: 1px solid var(--border);
+      overflow:auto;
+      font-size: 12px;
+      line-height: 1.45;
+      font-family: var(--mono);
+    }
+  </style>
 </head>
+
 <body>
   <div class="bg"></div>
 
@@ -308,9 +377,16 @@
       <div class="logo">D</div>
       <div>Data input</div>
     </div>
+
+    <div class="nav">
+      <button class="navBtn" id="navProcess" type="button" disabled>Process</button>
+      <button class="navBtn" id="navUpload" type="button" disabled>Upload</button>
+      <button class="navBtn" id="navSetup" type="button" disabled>Setup</button>
+    </div>
+
     <div class="chips">
-      <div class="chip" id="chipProject"><strong>Project:</strong> <span class="mono" id="chipProjectVal"></span></div>
-      <div class="chip" id="chipTable"><strong>Table:</strong> <span class="mono" id="chipTableVal"></span></div>
+      <div class="chip"><strong>Project:</strong> <span class="mono" id="chipProjectVal"></span></div>
+      <div class="chip"><strong>Table:</strong> <span class="mono" id="chipTableVal"></span></div>
       <div class="chip" id="chipAuth">Not signed in</div>
     </div>
   </div>
@@ -321,15 +397,14 @@
     <div class="heroGrid" id="authView">
       <div class="card">
         <div class="cardInner">
-          <div class="pill">Paste Excel · Save to Supabase</div>
+          <div class="pill">Monthly process · Paste Excel · Save to Supabase</div>
           <div class="big">Process.<br/>Upload.<br/>Own your data.</div>
           <div class="lead">
-            Sign in to upload spreadsheet-style tables straight into Supabase.
-            Use dataset names like <strong>Reporting_structure</strong>, <strong>Financial_data</strong>, or <strong>HR_data</strong>
-            so you can load/overwrite each dataset independently.
+            Set up a monthly schedule and reminders per dataset. Then upload spreadsheet-style tables and track status:
+            <strong>Not started → In progress → Uploaded → Approved</strong>.
           </div>
           <div class="note">
-            <strong>Tip:</strong> If Sign up requires email confirmation, you can temporarily turn it off in
+            <strong>Tip:</strong> For testing, you can temporarily disable email confirmation in
             <strong>Authentication → Sign in / Providers → Email</strong> (Confirm email).
           </div>
           <div class="pill" style="margin-top:12px">Secure via Supabase Auth</div>
@@ -357,36 +432,117 @@
             <button class="btn" id="btnTest" type="button">Test Supabase connection</button>
           </div>
 
-          <div class="hint">After signing in, you’ll be taken to the upload screen.</div>
+          <div class="hint">After signing in, you’ll land on the Process screen.</div>
           <div class="alert" id="authAlert"></div>
+
+          <details style="margin-top:14px">
+            <summary>First-time setup (tables + policies)</summary>
+            <div class="small" style="margin-top:8px">
+              Run this SQL once in Supabase <strong>SQL Editor</strong>. Then refresh this page.
+            </div>
+            <div class="btnRow" style="margin-top:10px">
+              <button class="btn" id="btnCopySql" type="button">Copy setup SQL</button>
+            </div>
+            <pre id="setupSql"></pre>
+          </details>
         </div>
       </div>
     </div>
 
-    <!-- APP VIEW -->
-    <div class="card appShell" id="appView">
-      <div class="appHeader">
-        <div class="left">
-          <div class="pill">Upload</div>
-          <div class="kpi" id="whoami">Signed in</div>
-        </div>
+    <!-- PROCESS VIEW -->
+    <div class="card shell" id="processView">
+      <div class="shellHeader">
+        <div class="pill">Process</div>
+        <div class="kpi" id="kpiUser">Signed in</div>
         <div class="btnRow" style="margin-top:0">
-          <button class="btn" id="btnSignOut" type="button">Sign out</button>
+          <button class="btn" id="btnSignOut1" type="button">Sign out</button>
         </div>
       </div>
 
-      <div class="appBody">
+      <div class="shellBody">
         <div class="toolbar">
           <div class="controls">
-            <div>
-              <label for="dataset">Dataset name</label>
-              <input id="dataset" type="text" value="Reporting_structure" />
-              <div class="small">Used for Load/Overwrite. Saved into DB column <span style="font-family:var(--mono)">dataset</span>.</div>
+            <div style="min-width:260px">
+              <label for="procDataset">Dataset</label>
+              <input id="procDataset" list="datasetOptions" placeholder="Reporting_structure" />
+              <datalist id="datasetOptions">
+                <option value="Reporting_structure"></option>
+                <option value="Financial_data"></option>
+                <option value="HR_data"></option>
+              </datalist>
+              <div class="small">Choose dataset to view its current monthly cycle.</div>
             </div>
-            <div class="toggle" style="margin-top:22px">
+          </div>
+          <div class="btnRow" style="margin-top:0">
+            <button class="btn" id="btnGoUpload" type="button">Go to upload</button>
+            <button class="btn" id="btnGoSetup" type="button">Edit process setup</button>
+          </div>
+        </div>
+
+        <div class="twoCol">
+          <div class="miniCard">
+            <div class="sectionTitle">Current cycle</div>
+            <div class="kv">
+              <div class="k">Period</div><div class="v" id="curPeriod">—</div>
+              <div class="k">Due</div><div class="v" id="curDue">—</div>
+              <div class="k">Status</div><div class="v"><span class="statusPill" id="curStatus"><span class="dot" id="curDot"></span><span id="curStatusText">—</span></span></div>
+              <div class="k">Next reminder</div><div class="v" id="curReminder">—</div>
+              <div class="k">Last upload</div><div class="v" id="curLastUpload">—</div>
+            </div>
+
+            <div class="btnRow" style="margin-top:14px">
+              <button class="btn primary" id="btnStart" type="button">Start</button>
+              <button class="btn" id="btnMarkBlocked" type="button">Mark blocked</button>
+              <button class="btn" id="btnApprove" type="button">Approve</button>
+              <button class="btn" id="btnReopen" type="button">Reopen</button>
+            </div>
+
+            <div class="small" id="procBanner" style="margin-top:10px"></div>
+          </div>
+
+          <div class="miniCard">
+            <div class="sectionTitle">Notes / blockers</div>
+            <label for="procNote">Note</label>
+            <textarea id="procNote" placeholder="Optional: what’s next, what’s blocked, anything to remember…"></textarea>
+            <div class="btnRow">
+              <button class="btn" id="btnSaveNote" type="button">Save note</button>
+              <button class="btn danger" id="btnClearBlocked" type="button">Clear blocked</button>
+            </div>
+            <div class="small">Notes are stored per dataset + period.</div>
+          </div>
+        </div>
+
+        <div class="alert" id="processAlert"></div>
+      </div>
+    </div>
+
+    <!-- UPLOAD VIEW -->
+    <div class="card shell" id="uploadView">
+      <div class="shellHeader">
+        <div class="pill">Upload</div>
+        <div class="kpi" id="kpiUser2">Signed in</div>
+        <div class="btnRow" style="margin-top:0">
+          <button class="btn" id="btnSignOut2" type="button">Sign out</button>
+        </div>
+      </div>
+
+      <div class="shellBody">
+        <div class="toolbar">
+          <div class="controls">
+            <div style="min-width:260px">
+              <label for="dataset">Dataset name</label>
+              <input id="dataset" list="datasetOptions2" placeholder="Reporting_structure" />
+              <datalist id="datasetOptions2">
+                <option value="Reporting_structure"></option>
+                <option value="Financial_data"></option>
+                <option value="HR_data"></option>
+              </datalist>
+              <div class="small">Saved into DB column <span class="mono">dataset</span>.</div>
+            </div>
+            <label class="toggle">
               <input id="overwrite" type="checkbox" checked />
               <span>Overwrite my latest (same dataset)</span>
-            </div>
+            </label>
           </div>
 
           <div class="btnRow" style="margin-top:0">
@@ -404,7 +560,108 @@
           <div id="grid"></div>
         </div>
 
-        <div class="alert" id="appAlert"></div>
+        <div class="alert" id="uploadAlert"></div>
+      </div>
+    </div>
+
+    <!-- SETUP VIEW -->
+    <div class="card shell" id="setupView">
+      <div class="shellHeader">
+        <div class="pill">Setup</div>
+        <div class="kpi" id="kpiUser3">Signed in</div>
+        <div class="btnRow" style="margin-top:0">
+          <button class="btn" id="btnSignOut3" type="button">Sign out</button>
+        </div>
+      </div>
+
+      <div class="shellBody">
+        <div class="toolbar">
+          <div class="controls" style="min-width:280px">
+            <div style="min-width:280px">
+              <label for="setupDataset">Dataset</label>
+              <input id="setupDataset" list="datasetOptions3" placeholder="Reporting_structure" />
+              <datalist id="datasetOptions3">
+                <option value="Reporting_structure"></option>
+                <option value="Financial_data"></option>
+                <option value="HR_data"></option>
+              </datalist>
+              <div class="small">Configure schedule & reminders for this dataset.</div>
+            </div>
+          </div>
+          <div class="btnRow" style="margin-top:0">
+            <button class="btn" id="btnBackToProcess" type="button">Back to process</button>
+          </div>
+        </div>
+
+        <div class="twoCol">
+          <div class="miniCard">
+            <div class="sectionTitle">Monthly schedule</div>
+
+            <div class="grid2">
+              <div>
+                <label for="dueDay">Due day of month</label>
+                <input id="dueDay" type="number" min="1" max="31" value="5" />
+                <div class="small">If the day doesn’t exist (e.g. 31st in Feb), it moves to the last day.</div>
+              </div>
+              <div>
+                <label for="dueTime">Due time</label>
+                <input id="dueTime" type="time" value="17:00" />
+              </div>
+            </div>
+
+            <div class="grid2" style="margin-top:10px">
+              <div>
+                <label for="reminderTime">Reminder time</label>
+                <input id="reminderTime" type="time" value="09:00" />
+              </div>
+              <div>
+                <label for="requireApproval">Require approval</label>
+                <select id="requireApproval">
+                  <option value="true" selected>Yes</option>
+                  <option value="false">No</option>
+                </select>
+                <div class="small">If No: upload will effectively complete the cycle.</div>
+              </div>
+            </div>
+
+            <label style="margin-top:12px">Reminders</label>
+            <div class="miniCard" style="padding:12px; border-radius:16px; box-shadow:none">
+              <label class="toggle"><input type="checkbox" id="rem7" checked> <span>7 days before due</span></label>
+              <label class="toggle"><input type="checkbox" id="rem2" checked> <span>2 days before due</span></label>
+              <label class="toggle"><input type="checkbox" id="rem1"> <span>1 day before due</span></label>
+              <label class="toggle"><input type="checkbox" id="rem0" checked> <span>Due day morning</span></label>
+              <label class="toggle"><input type="checkbox" id="overdueDaily" checked> <span>Overdue daily until uploaded</span></label>
+            </div>
+
+            <div class="btnRow" style="margin-top:12px">
+              <button class="btn primary" id="btnSaveSetup" type="button">Save setup</button>
+              <button class="btn" id="btnLoadSetup" type="button">Load setup</button>
+            </div>
+
+            <div class="small" id="setupPreview"></div>
+          </div>
+
+          <div class="miniCard">
+            <div class="sectionTitle">Preview</div>
+            <div class="kv">
+              <div class="k">Next due</div><div class="v" id="prevDue">—</div>
+              <div class="k">Next reminder</div><div class="v" id="prevReminder">—</div>
+              <div class="k">Status rules</div><div class="v">Not started → In progress → Uploaded → Approved</div>
+            </div>
+
+            <div class="note" style="margin-top:12px">
+              <strong>How reminders work:</strong><br/>
+              This app shows in‑app reminders on the Process screen. Later you can add email reminders using Supabase Edge Functions + cron.
+            </div>
+
+            <details style="margin-top:14px">
+              <summary>Database setup SQL (for reference)</summary>
+              <pre id="setupSql2"></pre>
+            </details>
+          </div>
+        </div>
+
+        <div class="alert" id="setupAlert"></div>
       </div>
     </div>
 
@@ -417,35 +674,130 @@
      * CONFIG — keep these in sync with your Supabase project
      ************************************************************/
     const SUPABASE_URL = "https://bfvidvslxcofuaoylhli.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_mLe7GSD1JP-1tYK1k09ZQg_mLydwaON"; // <-- IMPORTANT: replace with your anon key
-    const TABLE_NAME = "grid_uploads";                    // <-- your table
-    const DATASET_COLUMN = "dataset";                     // <-- add this column in Supabase (text) for multi-datasets
+    const SUPABASE_ANON_KEY = "sb_publishable_mLe7GSD1JP-1tYK1k09ZQg_mLydwaON";
+    const UPLOADS_TABLE = "grid_uploads";
+    const DATASET_COLUMN = "dataset";
+    const PERIOD_COLUMN = "period";          // add this column (text) to grid_uploads
+    const PROCESS_CONFIG_TABLE = "process_configs";
+    const PROCESS_RUNS_TABLE = "process_runs";
 
-    // Dashboard display
+    // UI chips
     document.getElementById("chipProjectVal").textContent = SUPABASE_URL;
-    document.getElementById("chipTableVal").textContent = TABLE_NAME;
+    document.getElementById("chipTableVal").textContent = UPLOADS_TABLE;
+
+    /************************************************************
+     * SQL setup (copyable)
+     ************************************************************/
+    const SETUP_SQL = `
+-- 1) Uploads table additions
+alter table public.${UPLOADS_TABLE}
+  add column if not exists ${DATASET_COLUMN} text not null default 'default',
+  add column if not exists ${PERIOD_COLUMN} text;
+
+create index if not exists ${UPLOADS_TABLE}_user_dataset_created_idx
+  on public.${UPLOADS_TABLE} (user_id, ${DATASET_COLUMN}, created_at desc);
+
+create index if not exists ${UPLOADS_TABLE}_user_dataset_period_idx
+  on public.${UPLOADS_TABLE} (user_id, ${DATASET_COLUMN}, ${PERIOD_COLUMN});
+
+-- 2) Process config per user + dataset
+create table if not exists public.${PROCESS_CONFIG_TABLE} (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  dataset text not null,
+  due_day int not null default 5,
+  due_time text not null default '17:00',
+  reminder_time text not null default '09:00',
+  reminders jsonb not null default '{"days_before":[7,2,0],"overdue_daily":true}'::jsonb,
+  require_approval boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists ${PROCESS_CONFIG_TABLE}_uniq_user_dataset
+  on public.${PROCESS_CONFIG_TABLE} (user_id, dataset);
+
+-- 3) Monthly runs per user + dataset + period
+create table if not exists public.${PROCESS_RUNS_TABLE} (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  dataset text not null,
+  period text not null,
+  due_at timestamptz not null,
+  status text not null default 'not_started', -- not_started | in_progress | uploaded | approved | blocked
+  note text,
+  block_reason text,
+  last_upload_id uuid,
+  last_uploaded_at timestamptz,
+  started_at timestamptz,
+  uploaded_at timestamptz,
+  approved_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists ${PROCESS_RUNS_TABLE}_uniq_user_dataset_period
+  on public.${PROCESS_RUNS_TABLE} (user_id, dataset, period);
+
+-- 4) Enable RLS
+alter table public.${PROCESS_CONFIG_TABLE} enable row level security;
+alter table public.${PROCESS_RUNS_TABLE} enable row level security;
+
+-- 5) RLS policies (owner-only)
+do $$ begin
+  -- configs
+  if not exists (select 1 from pg_policies where tablename='${PROCESS_CONFIG_TABLE}' and policyname='select own process configs') then
+    execute 'create policy "select own process configs" on public.${PROCESS_CONFIG_TABLE} for select to authenticated using (auth.uid() = user_id);';
+  end if;
+  if not exists (select 1 from pg_policies where tablename='${PROCESS_CONFIG_TABLE}' and policyname='insert own process configs') then
+    execute 'create policy "insert own process configs" on public.${PROCESS_CONFIG_TABLE} for insert to authenticated with check (auth.uid() = user_id);';
+  end if;
+  if not exists (select 1 from pg_policies where tablename='${PROCESS_CONFIG_TABLE}' and policyname='update own process configs') then
+    execute 'create policy "update own process configs" on public.${PROCESS_CONFIG_TABLE} for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);';
+  end if;
+
+  -- runs
+  if not exists (select 1 from pg_policies where tablename='${PROCESS_RUNS_TABLE}' and policyname='select own process runs') then
+    execute 'create policy "select own process runs" on public.${PROCESS_RUNS_TABLE} for select to authenticated using (auth.uid() = user_id);';
+  end if;
+  if not exists (select 1 from pg_policies where tablename='${PROCESS_RUNS_TABLE}' and policyname='insert own process runs') then
+    execute 'create policy "insert own process runs" on public.${PROCESS_RUNS_TABLE} for insert to authenticated with check (auth.uid() = user_id);';
+  end if;
+  if not exists (select 1 from pg_policies where tablename='${PROCESS_RUNS_TABLE}' and policyname='update own process runs') then
+    execute 'create policy "update own process runs" on public.${PROCESS_RUNS_TABLE} for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);';
+  end if;
+end $$;
+`.trim();
+
+    document.getElementById("setupSql").textContent = SETUP_SQL;
+    document.getElementById("setupSql2").textContent = SETUP_SQL;
 
     /************************************************************
      * Minimal Supabase Auth + PostgREST (no supabase-js dependency)
-     * This avoids AbortError issues caused by blocked ESM/CDN imports.
      ************************************************************/
-    const LS_KEY = "di_session_v1";
+    const LS_KEY = "di_session_v2";
 
-    function setChipAuth(text){ document.getElementById("chipAuth").textContent = text; }
+    function $(id){ return document.getElementById(id); }
+    function setChipAuth(text){ $("chipAuth").textContent = text; }
+
     function showAlert(el, msg, ok=false){
       el.textContent = msg;
       el.classList.toggle("ok", !!ok);
       el.style.display = "block";
     }
-    function hideAlert(el){ el.style.display = "none"; el.textContent = ""; el.classList.remove("ok"); }
-
-    function normalizeDataset(s){
-      return (s || "default")
-        .trim()
-        .replace(/\s+/g, "_")
-        .replace(/[^\w\-]/g, "_")
-        .slice(0, 80) || "default";
+    function hideAlert(el){
+      el.style.display = "none";
+      el.textContent = "";
+      el.classList.remove("ok");
     }
+
+    function setBusy(btn, busy){
+      btn.disabled = !!busy;
+      btn.dataset._t = btn.dataset._t || btn.textContent;
+      btn.textContent = busy ? "Working…" : btn.dataset._t;
+    }
+
+    function nowSec(){ return Math.floor(Date.now()/1000); }
 
     function loadSession(){
       try{ return JSON.parse(localStorage.getItem(LS_KEY) || "null"); }catch{ return null; }
@@ -453,12 +805,10 @@
     function saveSession(s){ localStorage.setItem(LS_KEY, JSON.stringify(s)); }
     function clearSession(){ localStorage.removeItem(LS_KEY); }
 
-    function nowSec(){ return Math.floor(Date.now()/1000); }
-
-    async function authRequest(path, { method="GET", body=null, token=null } = {}){
+    async function api(path, { method="GET", body=null, token=null } = {}){
       const headers = {
         "apikey": SUPABASE_ANON_KEY,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       };
       if(token) headers["Authorization"] = "Bearer " + token;
 
@@ -473,62 +823,10 @@
       try{ json = text ? JSON.parse(text) : null; }catch{ json = null; }
 
       if(!res.ok){
-        const msg = (json && (json.error_description || json.msg || json.message || json.error)) || (text || res.statusText);
+        const msg = (json && (json.error_description || json.msg || json.message || json.error || json.hint || json.details)) || (text || res.statusText);
         throw new Error(msg);
       }
       return json;
-    }
-
-    async function signUp(email, password){
-      // https://supabase.com/docs/reference/javascript/auth-signup
-      return authRequest("/auth/v1/signup", {
-        method: "POST",
-        body: { email, password }
-      });
-    }
-
-    async function signIn(email, password){
-      // Password grant
-      const data = await authRequest("/auth/v1/token?grant_type=password", {
-        method: "POST",
-        body: { email, password }
-      });
-
-      // data: { access_token, refresh_token, expires_in, token_type, user }
-      const session = {
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
-        expires_at: nowSec() + (data.expires_in || 3600),
-        user: data.user
-      };
-      saveSession(session);
-      return session;
-    }
-
-    async function refreshSession(session){
-      const data = await authRequest("/auth/v1/token?grant_type=refresh_token", {
-        method: "POST",
-        body: { refresh_token: session.refresh_token }
-      });
-      const next = {
-        access_token: data.access_token,
-        refresh_token: data.refresh_token || session.refresh_token,
-        expires_at: nowSec() + (data.expires_in || 3600),
-        user: data.user || session.user
-      };
-      saveSession(next);
-      return next;
-    }
-
-    async function getValidSession(){
-      let s = loadSession();
-      if(!s) return null;
-      // refresh if expiring in next 60s
-      if((s.expires_at || 0) < nowSec() + 60){
-        try{ s = await refreshSession(s); }
-        catch(e){ clearSession(); throw e; }
-      }
-      return s;
     }
 
     async function postgrest(path, { method="GET", token=null, body=null, prefer=null } = {}){
@@ -556,39 +854,171 @@
       return json;
     }
 
+    async function signUp(email, password){
+      return api("/auth/v1/signup", { method:"POST", body:{ email, password } });
+    }
+
+    async function signIn(email, password){
+      const data = await api("/auth/v1/token?grant_type=password", { method:"POST", body:{ email, password } });
+      const session = {
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        expires_at: nowSec() + (data.expires_in || 3600),
+        user: data.user
+      };
+      saveSession(session);
+      return session;
+    }
+
+    async function refreshSession(session){
+      const data = await api("/auth/v1/token?grant_type=refresh_token", { method:"POST", body:{ refresh_token: session.refresh_token } });
+      const next = {
+        access_token: data.access_token,
+        refresh_token: data.refresh_token || session.refresh_token,
+        expires_at: nowSec() + (data.expires_in || 3600),
+        user: data.user || session.user
+      };
+      saveSession(next);
+      return next;
+    }
+
+    async function getValidSession(){
+      let s = loadSession();
+      if(!s) return null;
+      if((s.expires_at || 0) < nowSec() + 60){
+        try{ s = await refreshSession(s); }
+        catch(e){ clearSession(); throw e; }
+      }
+      return s;
+    }
+
     /************************************************************
-     * UI logic
+     * Navigation + view switching
      ************************************************************/
-    const authView = document.getElementById("authView");
-    const appView  = document.getElementById("appView");
-    const authAlert = document.getElementById("authAlert");
-    const appAlert  = document.getElementById("appAlert");
-    const whoami    = document.getElementById("whoami");
+    const VIEWS = {
+      AUTH: "auth",
+      PROCESS: "process",
+      UPLOAD: "upload",
+      SETUP: "setup",
+    };
 
-    function showAuth(){
-      authView.style.display = "grid";
-      appView.style.display = "none";
-      setChipAuth("Not signed in");
-    }
-    function showApp(session){
-      authView.style.display = "none";
-      appView.style.display = "block";
-      const email = session?.user?.email || "Signed in";
-      setChipAuth(email);
-      whoami.textContent = "Signed in as " + email;
+    function setActiveNav(view){
+      const map = { process:"navProcess", upload:"navUpload", setup:"navSetup" };
+      for(const key of Object.values(map)){
+        const btn = $(key);
+        if(btn) btn.classList.remove("active");
+      }
+      if(map[view]) $(map[view]).classList.add("active");
     }
 
-    function setBusy(btn, busy){
-      btn.disabled = !!busy;
-      btn.dataset._t = btn.dataset._t || btn.textContent;
-      btn.textContent = busy ? "Working…" : btn.dataset._t;
+    function showView(view){
+      $("authView").style.display    = (view === VIEWS.AUTH) ? "grid" : "none";
+      $("processView").style.display = (view === VIEWS.PROCESS) ? "block" : "none";
+      $("uploadView").style.display  = (view === VIEWS.UPLOAD) ? "block" : "none";
+      $("setupView").style.display   = (view === VIEWS.SETUP) ? "block" : "none";
+
+      if(view !== VIEWS.AUTH) setActiveNav(view);
+    }
+
+    function setNavEnabled(enabled){
+      $("navProcess").disabled = !enabled;
+      $("navUpload").disabled = !enabled;
+      $("navSetup").disabled  = !enabled;
+    }
+
+    function formatLocal(dt){
+      if(!dt) return "—";
+      const d = (dt instanceof Date) ? dt : new Date(dt);
+      if(isNaN(d.getTime())) return "—";
+      return d.toLocaleString(undefined, { year:"numeric", month:"short", day:"2-digit", hour:"2-digit", minute:"2-digit" });
+    }
+
+    function formatDateOnly(dt){
+      if(!dt) return "—";
+      const d = (dt instanceof Date) ? dt : new Date(dt);
+      if(isNaN(d.getTime())) return "—";
+      return d.toLocaleDateString(undefined, { year:"numeric", month:"short", day:"2-digit" });
+    }
+
+    function statusLabel(s){
+      const map = {
+        not_started: "Not started",
+        in_progress: "In progress",
+        uploaded: "Uploaded",
+        approved: "Approved",
+        blocked: "Blocked",
+      };
+      return map[s] || s || "—";
+    }
+
+    function statusDotClass(s, dueAt){
+      // warn if due soon or overdue and not uploaded/approved
+      const now = new Date();
+      const due = dueAt ? new Date(dueAt) : null;
+      if(s === "approved") return "ok";
+      if(s === "uploaded") return "warn";
+      if(s === "blocked") return "bad";
+      if(due && !isNaN(due.getTime())){
+        const diffMs = due - now;
+        const diffDays = diffMs / (1000*60*60*24);
+        if(diffDays < 0) return "bad";
+        if(diffDays <= 2) return "warn";
+      }
+      return "";
+    }
+
+    function normalizeDataset(s){
+      return (s || "default")
+        .trim()
+        .replace(/\s+/g, "_")
+        .replace(/[^\w\-]/g, "_")
+        .slice(0, 80) || "default";
+    }
+
+    function getPeriod(date = new Date()){
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      return `${y}-${m}`;
+    }
+
+    function daysInMonth(year, month1to12){
+      return new Date(year, month1to12, 0).getDate();
+    }
+
+    function computeDueAt(period, dueDay, dueTime){
+      const [yStr, mStr] = String(period).split("-");
+      const y = Number(yStr);
+      const m = Number(mStr);
+      const dmax = daysInMonth(y, m);
+      const d = Math.min(Math.max(1, Number(dueDay) || 5), dmax);
+      const [hh, mm] = String(dueTime || "17:00").split(":").map(n => Number(n));
+      return new Date(y, m-1, d, (hh||0), (mm||0), 0, 0);
+    }
+
+    function computeReminders(dueAt, reminderTime, reminders){
+      // reminders.days_before: array like [7,2,0]
+      const out = [];
+      const daysBefore = (reminders?.days_before || []).slice().sort((a,b)=>b-a);
+      const [hh, mm] = String(reminderTime || "09:00").split(":").map(n => Number(n));
+      for(const db of daysBefore){
+        const dt = new Date(dueAt);
+        dt.setDate(dt.getDate() - Number(db));
+        dt.setHours(hh||0, mm||0, 0, 0);
+        out.push({ when: dt, label: db === 0 ? "Due day reminder" : `${db} days before due` });
+      }
+      return out.sort((a,b)=>a.when-b.when);
+    }
+
+    function nextReminder(reminders){
+      const now = new Date();
+      const nxt = reminders.find(r => r.when > now);
+      return nxt || null;
     }
 
     /************************************************************
      * Handsontable grid
      ************************************************************/
-    const container = document.getElementById("grid");
-    const hot = new Handsontable(container, {
+    const hot = new Handsontable($("grid"), {
       data: Array.from({length: 20}, () => Array.from({length: 12}, () => "")),
       rowHeaders: true,
       colHeaders: true,
@@ -602,166 +1032,674 @@
 
     function gridToRows(){
       const data = hot.getData();
-      // trim trailing empty rows
-      let lastNonEmptyRow = -1;
+      let last = -1;
       for(let r=0; r<data.length; r++){
-        if(data[r].some(v => String(v ?? "").trim() !== "")) lastNonEmptyRow = r;
+        if(data[r].some(v => String(v ?? "").trim() !== "")) last = r;
       }
-      const trimmed = data.slice(0, lastNonEmptyRow + 1);
-      return trimmed;
+      return data.slice(0, last + 1);
     }
-
     function setGrid(rows){
       if(!rows || !rows.length){
         hot.loadData(Array.from({length: 20}, () => Array.from({length: 12}, () => "")));
         return;
       }
-      // Ensure at least 20 rows for comfort
       const width = Math.max(...rows.map(r => r.length), 12);
-      const normalized = rows.map(r => {
-        const rr = Array.from({length: width}, (_, i) => (r[i] ?? ""));
-        return rr;
-      });
-      while(normalized.length < 20) normalized.push(Array.from({length: width}, () => ""));
-      hot.loadData(normalized);
+      const norm = rows.map(r => Array.from({length: width}, (_,i)=> (r[i] ?? "")));
+      while(norm.length < 20) norm.push(Array.from({length: width}, ()=>""));
+      hot.loadData(norm);
     }
 
     /************************************************************
-     * Data operations
+     * Process data (configs + runs)
      ************************************************************/
-    async function getLatestRowId(session, dataset){
-      // select id, rows for this user+dataset, latest only
+    async function ensureTables(session){
+      // Soft check: try select from process_configs; if not exists, return false
+      try{
+        await postgrest(`${PROCESS_CONFIG_TABLE}?select=id&limit=1`, { token: session.access_token });
+        await postgrest(`${PROCESS_RUNS_TABLE}?select=id&limit=1`, { token: session.access_token });
+        return true;
+      }catch(e){
+        return false;
+      }
+    }
+
+    async function loadConfig(session, dataset){
       const ds = encodeURIComponent(dataset);
       const uid = encodeURIComponent(session.user.id);
-
-      const select = encodeURIComponent("id,created_at,rows");
-      const url = `${TABLE_NAME}?select=${select}&user_id=eq.${uid}&${DATASET_COLUMN}=eq.${ds}&order=created_at.desc&limit=1`;
-      const res = await postgrest(url, { method:"GET", token: session.access_token });
-      return res && res.length ? res[0] : null;
+      const select = encodeURIComponent("id,user_id,dataset,due_day,due_time,reminder_time,reminders,require_approval,updated_at");
+      const url = `${PROCESS_CONFIG_TABLE}?select=${select}&user_id=eq.${uid}&dataset=eq.${ds}&limit=1`;
+      const res = await postgrest(url, { token: session.access_token });
+      return res?.[0] || null;
     }
 
-    async function deleteRowById(session, id){
-      const url = `${TABLE_NAME}?id=eq.${encodeURIComponent(id)}`;
-      await postgrest(url, { method:"DELETE", token: session.access_token, prefer: "return=minimal" });
+    async function upsertConfig(session, dataset, cfg){
+      // We rely on unique index (user_id,dataset) and do "upsert" via Prefer: resolution=merge-duplicates
+      const payload = {
+        user_id: session.user.id,
+        dataset,
+        due_day: cfg.due_day,
+        due_time: cfg.due_time,
+        reminder_time: cfg.reminder_time,
+        reminders: cfg.reminders,
+        require_approval: cfg.require_approval,
+        updated_at: new Date().toISOString()
+      };
+      const url = `${PROCESS_CONFIG_TABLE}`;
+      const res = await postgrest(url, {
+        method:"POST",
+        token: session.access_token,
+        body: payload,
+        prefer: "resolution=merge-duplicates,return=representation"
+      });
+      return res?.[0] || null;
     }
 
-    async function insertRows(session, dataset, rows){
+    async function loadRun(session, dataset, period){
+      const ds = encodeURIComponent(dataset);
+      const uid = encodeURIComponent(session.user.id);
+      const pr = encodeURIComponent(period);
+      const select = encodeURIComponent("id,user_id,dataset,period,due_at,status,note,block_reason,last_upload_id,last_uploaded_at,started_at,uploaded_at,approved_at,updated_at");
+      const url = `${PROCESS_RUNS_TABLE}?select=${select}&user_id=eq.${uid}&dataset=eq.${ds}&period=eq.${pr}&limit=1`;
+      const res = await postgrest(url, { token: session.access_token });
+      return res?.[0] || null;
+    }
+
+    async function upsertRun(session, dataset, period, dueAt, patch){
+      const payload = Object.assign({
+        user_id: session.user.id,
+        dataset,
+        period,
+        due_at: (dueAt instanceof Date) ? dueAt.toISOString() : dueAt
+      }, patch || {}, { updated_at: new Date().toISOString() });
+
+      const url = `${PROCESS_RUNS_TABLE}`;
+      const res = await postgrest(url, {
+        method:"POST",
+        token: session.access_token,
+        body: payload,
+        prefer: "resolution=merge-duplicates,return=representation"
+      });
+      return res?.[0] || null;
+    }
+
+    async function getLatestUpload(session, dataset){
+      const ds = encodeURIComponent(dataset);
+      const uid = encodeURIComponent(session.user.id);
+      const select = encodeURIComponent("id,created_at,rows,"+DATASET_COLUMN+"," + PERIOD_COLUMN);
+      const url = `${UPLOADS_TABLE}?select=${select}&user_id=eq.${uid}&${DATASET_COLUMN}=eq.${ds}&order=created_at.desc&limit=1`;
+      const res = await postgrest(url, { token: session.access_token });
+      return res?.[0] || null;
+    }
+
+    /************************************************************
+     * Upload ops (delete latest then insert)
+     ************************************************************/
+    async function deleteUploadById(session, id){
+      const url = `${UPLOADS_TABLE}?id=eq.${encodeURIComponent(id)}`;
+      await postgrest(url, { method:"DELETE", token: session.access_token, prefer:"return=minimal" });
+    }
+
+    async function insertUpload(session, dataset, period, rows){
       const payload = {
         user_id: session.user.id,
         [DATASET_COLUMN]: dataset,
-        rows: rows
+        [PERIOD_COLUMN]: period,
+        rows
       };
-      const url = `${TABLE_NAME}`;
-      const res = await postgrest(url, { method:"POST", token: session.access_token, body: payload, prefer: "return=representation" });
-      return res;
+      const res = await postgrest(`${UPLOADS_TABLE}`, {
+        method:"POST",
+        token: session.access_token,
+        body: payload,
+        prefer:"return=representation"
+      });
+      return res?.[0] || null;
     }
 
     /************************************************************
-     * Buttons
+     * Screen state + shared
      ************************************************************/
-    document.getElementById("btnTest").addEventListener("click", async () => {
-      hideAlert(authAlert);
-      const btn = document.getElementById("btnTest");
-      setBusy(btn, true);
+    let CURRENT_SESSION = null;
+
+    function setSignedInUI(session){
+      const email = session?.user?.email || "Signed in";
+      setChipAuth(email);
+      $("kpiUser").textContent = "Signed in as " + email;
+      $("kpiUser2").textContent = "Signed in as " + email;
+      $("kpiUser3").textContent = "Signed in as " + email;
+      setNavEnabled(true);
+    }
+
+    function setSignedOutUI(){
+      setChipAuth("Not signed in");
+      setNavEnabled(false);
+    }
+
+    function syncDatasetAcrossScreens(dataset){
+      $("procDataset").value = dataset;
+      $("dataset").value = dataset;
+      $("setupDataset").value = dataset;
+    }
+
+    /************************************************************
+     * Render Process screen
+     ************************************************************/
+    async function renderProcess(){
+      hideAlert($("processAlert"));
+      const session = await getValidSession();
+      if(!session){ return bootSignedOut(); }
+      CURRENT_SESSION = session;
+      setSignedInUI(session);
+
+      const dataset = normalizeDataset($("procDataset").value || $("dataset").value || "Reporting_structure");
+      syncDatasetAcrossScreens(dataset);
+
+      const tablesOk = await ensureTables(session);
+      if(!tablesOk){
+        showAlert($("processAlert"), "Database setup not complete yet. Open the setup SQL on the Sign in screen and run it in Supabase SQL Editor.", false);
+      }
+
+      const period = getPeriod();
+      $("curPeriod").textContent = period;
+
+      // Load config; if missing, use defaults and encourage Setup
+      const cfg = await loadConfig(session, dataset).catch(()=>null);
+      const dueDay = cfg?.due_day ?? 5;
+      const dueTime = cfg?.due_time ?? "17:00";
+      const reminderTime = cfg?.reminder_time ?? "09:00";
+      const remindersObj = cfg?.reminders ?? { days_before:[7,2,0], overdue_daily:true };
+      const requireApproval = (cfg?.require_approval ?? true);
+
+      const dueAt = computeDueAt(period, dueDay, dueTime);
+      $("curDue").textContent = formatLocal(dueAt);
+
+      // Ensure run exists
+      let run = await loadRun(session, dataset, period).catch(()=>null);
+      if(!run){
+        run = await upsertRun(session, dataset, period, dueAt, { status:"not_started" }).catch(()=>null);
+      }
+
+      // latest upload
+      const latestUpload = await getLatestUpload(session, dataset).catch(()=>null);
+      const lastUploadText = latestUpload
+        ? `${formatLocal(latestUpload.created_at)} · id ${latestUpload.id.slice(0,8)} · period ${latestUpload[PERIOD_COLUMN] || "—"}`
+        : "—";
+      $("curLastUpload").textContent = lastUploadText;
+
+      // Next reminder
+      const remList = computeReminders(dueAt, reminderTime, remindersObj);
+      const nxt = nextReminder(remList);
+      $("curReminder").textContent = nxt ? `${formatLocal(nxt.when)} (${nxt.label})` : "—";
+
+      // Status UI
+      const status = run?.status || "not_started";
+      $("curStatusText").textContent = statusLabel(status);
+      const dotCls = statusDotClass(status, dueAt);
+      $("curDot").className = "dot" + (dotCls ? (" " + dotCls) : "");
+
+      // Banner / guidance
+      const now = new Date();
+      const diffDays = (dueAt - now) / (1000*60*60*24);
+      let banner = "";
+      if(status === "approved"){
+        banner = "✅ Approved. If you need to change data, click Reopen, then upload again.";
+      } else if(status === "uploaded" && requireApproval){
+        banner = "🟠 Uploaded and waiting for approval.";
+      } else if(status === "uploaded" && !requireApproval){
+        banner = "🟢 Uploaded. (Approval not required for this dataset.)";
+      } else if(status === "blocked"){
+        banner = "🔴 Blocked. Add a blocker note and clear blocked when ready.";
+      } else if(diffDays < 0){
+        banner = "🔴 Overdue. Upload as soon as possible.";
+      } else if(diffDays <= 2){
+        banner = "🟠 Due soon. Consider uploading today.";
+      } else {
+        banner = "Ready when you are. Click Start to begin the cycle.";
+      }
+      $("procBanner").textContent = banner;
+
+      // Notes
+      $("procNote").value = run?.note || run?.block_reason || "";
+
+      // Enable/disable buttons
+      $("btnApprove").disabled = (status !== "uploaded");
+      $("btnReopen").disabled = (status !== "approved");
+      $("btnStart").disabled = (status !== "not_started");
+      $("btnMarkBlocked").disabled = (status === "approved");
+      $("btnClearBlocked").disabled = (status !== "blocked");
+
+      showView(VIEWS.PROCESS);
+      setActiveNav("process");
+    }
+
+    /************************************************************
+     * Render Setup screen
+     ************************************************************/
+    async function renderSetup(){
+      hideAlert($("setupAlert"));
+      const session = await getValidSession();
+      if(!session){ return bootSignedOut(); }
+      CURRENT_SESSION = session;
+      setSignedInUI(session);
+
+      const dataset = normalizeDataset($("setupDataset").value || $("procDataset").value || "Reporting_structure");
+      syncDatasetAcrossScreens(dataset);
+
+      const cfg = await loadConfig(session, dataset).catch(()=>null);
+      if(cfg){
+        $("dueDay").value = cfg.due_day ?? 5;
+        $("dueTime").value = cfg.due_time ?? "17:00";
+        $("reminderTime").value = cfg.reminder_time ?? "09:00";
+        $("requireApproval").value = String(!!cfg.require_approval);
+
+        const daysBefore = (cfg.reminders?.days_before || [7,2,0]);
+        $("rem7").checked = daysBefore.includes(7);
+        $("rem2").checked = daysBefore.includes(2);
+        $("rem1").checked = daysBefore.includes(1);
+        $("rem0").checked = daysBefore.includes(0);
+        $("overdueDaily").checked = !!cfg.reminders?.overdue_daily;
+        $("setupPreview").textContent = "Loaded saved setup for this dataset.";
+      } else {
+        $("setupPreview").textContent = "No saved setup yet. Configure and Save.";
+      }
+
+      updateSetupPreview();
+      showView(VIEWS.SETUP);
+      setActiveNav("setup");
+    }
+
+    function getSetupForm(){
+      const due_day = Number($("dueDay").value || 5);
+      const due_time = $("dueTime").value || "17:00";
+      const reminder_time = $("reminderTime").value || "09:00";
+      const require_approval = ($("requireApproval").value === "true");
+      const days_before = [];
+      if($("rem7").checked) days_before.push(7);
+      if($("rem2").checked) days_before.push(2);
+      if($("rem1").checked) days_before.push(1);
+      if($("rem0").checked) days_before.push(0);
+      const reminders = { days_before, overdue_daily: $("overdueDaily").checked };
+      return { due_day, due_time, reminder_time, reminders, require_approval };
+    }
+
+    function updateSetupPreview(){
+      const dataset = normalizeDataset($("setupDataset").value || "Reporting_structure");
+      const cfg = getSetupForm();
+      const period = getPeriod();
+      const dueAt = computeDueAt(period, cfg.due_day, cfg.due_time);
+      $("prevDue").textContent = `${formatLocal(dueAt)} (period ${period})`;
+
+      const remList = computeReminders(dueAt, cfg.reminder_time, cfg.reminders);
+      const nxt = nextReminder(remList);
+      $("prevReminder").textContent = nxt ? `${formatLocal(nxt.when)} (${nxt.label})` : "—";
+      $("setupPreview").textContent = `Preview for ${dataset}. Save to apply.`;
+    }
+
+    /************************************************************
+     * Boot / Auth
+     ************************************************************/
+    async function bootSignedOut(){
+      CURRENT_SESSION = null;
+      setSignedOutUI();
+      showView(VIEWS.AUTH);
+      // keep setup SQL ready
+    }
+
+    async function bootSignedIn(){
+      const session = await getValidSession();
+      if(!session) return bootSignedOut();
+      CURRENT_SESSION = session;
+      setSignedInUI(session);
+      // default dataset
+      const ds = normalizeDataset($("procDataset").value || "Reporting_structure");
+      syncDatasetAcrossScreens(ds);
+      await renderProcess();
+    }
+
+    /************************************************************
+     * Event handlers
+     ************************************************************/
+    $("btnCopySql").addEventListener("click", async () => {
       try{
-        // Health endpoint doesn't require auth; proves URL + key are valid and reachable
-        await authRequest("/auth/v1/health", { method:"GET" });
-        showAlert(authAlert, "Connection OK.", true);
+        await navigator.clipboard.writeText(SETUP_SQL);
+        showAlert($("authAlert"), "Copied setup SQL to clipboard.", true);
       }catch(e){
-        showAlert(authAlert, "Connection failed: " + e.message);
-      }finally{
-        setBusy(btn, false);
+        showAlert($("authAlert"), "Could not copy. Select the SQL text and copy manually.", false);
       }
     });
 
-    document.getElementById("btnSignUp").addEventListener("click", async () => {
-      hideAlert(authAlert);
-      const email = (document.getElementById("email").value || "").trim();
-      const pass  = (document.getElementById("password").value || "").trim();
-      const btn = document.getElementById("btnSignUp");
-      setBusy(btn, true);
+    $("btnTest").addEventListener("click", async () => {
+      hideAlert($("authAlert"));
+      setBusy($("btnTest"), true);
       try{
+        await api("/auth/v1/health", { method:"GET" });
+        showAlert($("authAlert"), "Connection OK.", true);
+      }catch(e){
+        showAlert($("authAlert"), "Connection failed: " + e.message, false);
+      }finally{
+        setBusy($("btnTest"), false);
+      }
+    });
+
+    $("btnSignUp").addEventListener("click", async () => {
+      hideAlert($("authAlert"));
+      setBusy($("btnSignUp"), true);
+      try{
+        const email = ($("email").value || "").trim();
+        const pass  = ($("password").value || "").trim();
         if(!email || !pass) throw new Error("Enter email + password.");
         await signUp(email, pass);
-        showAlert(authAlert, "Sign-up OK. If email confirmation is enabled, confirm via email, then sign in.", true);
+        showAlert($("authAlert"), "Sign-up OK. If email confirmation is enabled, confirm via email, then sign in.", true);
       }catch(e){
-        showAlert(authAlert, e.message);
+        showAlert($("authAlert"), e.message, false);
       }finally{
-        setBusy(btn, false);
+        setBusy($("btnSignUp"), false);
       }
     });
 
-    document.getElementById("btnSignIn").addEventListener("click", async () => {
-      hideAlert(authAlert);
-      const email = (document.getElementById("email").value || "").trim();
-      const pass  = (document.getElementById("password").value || "").trim();
-      const btn = document.getElementById("btnSignIn");
-      setBusy(btn, true);
+    $("btnSignIn").addEventListener("click", async () => {
+      hideAlert($("authAlert"));
+      setBusy($("btnSignIn"), true);
       try{
+        const email = ($("email").value || "").trim();
+        const pass  = ($("password").value || "").trim();
         if(!email || !pass) throw new Error("Enter email + password.");
         const session = await signIn(email, pass);
-        showApp(session);
-        showAlert(appAlert, "Signed in successfully.", true);
+        setSignedInUI(session);
+        syncDatasetAcrossScreens(normalizeDataset($("procDataset").value || "Reporting_structure"));
+        await renderProcess();
       }catch(e){
-        showAlert(authAlert, e.message);
+        showAlert($("authAlert"), e.message, false);
       }finally{
-        setBusy(btn, false);
+        setBusy($("btnSignIn"), false);
       }
     });
 
-    document.getElementById("btnSignOut").addEventListener("click", async () => {
-      hideAlert(appAlert);
+    function doSignOut(){
       clearSession();
-      showAuth();
-      showAlert(authAlert, "Signed out.", true);
-    });
+      bootSignedOut();
+      showAlert($("authAlert"), "Signed out.", true);
+    }
+    $("btnSignOut1").addEventListener("click", doSignOut);
+    $("btnSignOut2").addEventListener("click", doSignOut);
+    $("btnSignOut3").addEventListener("click", doSignOut);
 
-    document.getElementById("btnClear").addEventListener("click", () => {
-      hideAlert(appAlert);
-      setGrid([]);
-      showAlert(appAlert, "Cleared.", true);
+    // Top nav
+    $("navProcess").addEventListener("click", () => renderProcess());
+    $("navUpload").addEventListener("click", async () => {
+      const session = await getValidSession();
+      if(!session) return bootSignedOut();
+      setSignedInUI(session);
+      showView(VIEWS.UPLOAD);
+      setActiveNav("upload");
     });
+    $("navSetup").addEventListener("click", () => renderSetup());
 
-    document.getElementById("btnCopyJson").addEventListener("click", async () => {
-      hideAlert(appAlert);
-      const btn = document.getElementById("btnCopyJson");
-      setBusy(btn, true);
+    // Process controls
+    $("procDataset").addEventListener("change", () => renderProcess());
+    $("btnGoUpload").addEventListener("click", async () => {
+      const session = await getValidSession();
+      if(!session) return bootSignedOut();
+      setSignedInUI(session);
+      const ds = normalizeDataset($("procDataset").value || "Reporting_structure");
+      syncDatasetAcrossScreens(ds);
+      showView(VIEWS.UPLOAD);
+      setActiveNav("upload");
+    });
+    $("btnGoSetup").addEventListener("click", () => renderSetup());
+
+    $("btnStart").addEventListener("click", async () => {
+      hideAlert($("processAlert"));
+      setBusy($("btnStart"), true);
       try{
         const session = await getValidSession();
         if(!session) throw new Error("Not signed in.");
-        const dataset = normalizeDataset(document.getElementById("dataset").value);
-        const latest = await getLatestRowId(session, dataset);
-        const rows = latest?.rows ?? [];
-        await navigator.clipboard.writeText(JSON.stringify(rows));
-        showAlert(appAlert, "Copied latest JSON (same dataset) to clipboard.", true);
+        const dataset = normalizeDataset($("procDataset").value);
+        const cfg = await loadConfig(session, dataset).catch(()=>null);
+        const period = getPeriod();
+        const dueAt = computeDueAt(period, cfg?.due_day ?? 5, cfg?.due_time ?? "17:00");
+        await upsertRun(session, dataset, period, dueAt, {
+          status: "in_progress",
+          started_at: new Date().toISOString()
+        });
+        await renderProcess();
+        showAlert($("processAlert"), "Started.", true);
       }catch(e){
-        showAlert(appAlert, e.message);
+        showAlert($("processAlert"), e.message, false);
       }finally{
-        setBusy(btn, false);
+        setBusy($("btnStart"), false);
       }
     });
 
-    document.getElementById("btnLoadLatest").addEventListener("click", async () => {
-      hideAlert(appAlert);
-      const btn = document.getElementById("btnLoadLatest");
-      setBusy(btn, true);
+    $("btnMarkBlocked").addEventListener("click", async () => {
+      hideAlert($("processAlert"));
+      setBusy($("btnMarkBlocked"), true);
       try{
         const session = await getValidSession();
         if(!session) throw new Error("Not signed in.");
-        const dataset = normalizeDataset(document.getElementById("dataset").value);
-        const latest = await getLatestRowId(session, dataset);
+        const dataset = normalizeDataset($("procDataset").value);
+        const cfg = await loadConfig(session, dataset).catch(()=>null);
+        const period = getPeriod();
+        const dueAt = computeDueAt(period, cfg?.due_day ?? 5, cfg?.due_time ?? "17:00");
+        const note = ($("procNote").value || "").trim();
+        await upsertRun(session, dataset, period, dueAt, {
+          status: "blocked",
+          block_reason: note || "Blocked",
+          note: note || null
+        });
+        await renderProcess();
+        showAlert($("processAlert"), "Marked blocked.", true);
+      }catch(e){
+        showAlert($("processAlert"), e.message, false);
+      }finally{
+        setBusy($("btnMarkBlocked"), false);
+      }
+    });
+
+    $("btnApprove").addEventListener("click", async () => {
+      hideAlert($("processAlert"));
+      setBusy($("btnApprove"), true);
+      try{
+        const session = await getValidSession();
+        if(!session) throw new Error("Not signed in.");
+        const dataset = normalizeDataset($("procDataset").value);
+        const cfg = await loadConfig(session, dataset).catch(()=>null);
+        const period = getPeriod();
+        const dueAt = computeDueAt(period, cfg?.due_day ?? 5, cfg?.due_time ?? "17:00");
+        await upsertRun(session, dataset, period, dueAt, {
+          status: "approved",
+          approved_at: new Date().toISOString()
+        });
+        await renderProcess();
+        showAlert($("processAlert"), "Approved.", true);
+      }catch(e){
+        showAlert($("processAlert"), e.message, false);
+      }finally{
+        setBusy($("btnApprove"), false);
+      }
+    });
+
+    $("btnReopen").addEventListener("click", async () => {
+      hideAlert($("processAlert"));
+      setBusy($("btnReopen"), true);
+      try{
+        const session = await getValidSession();
+        if(!session) throw new Error("Not signed in.");
+        const dataset = normalizeDataset($("procDataset").value);
+        const cfg = await loadConfig(session, dataset).catch(()=>null);
+        const period = getPeriod();
+        const dueAt = computeDueAt(period, cfg?.due_day ?? 5, cfg?.due_time ?? "17:00");
+        await upsertRun(session, dataset, period, dueAt, {
+          status: "in_progress",
+          approved_at: null
+        });
+        await renderProcess();
+        showAlert($("processAlert"), "Reopened.", true);
+      }catch(e){
+        showAlert($("processAlert"), e.message, false);
+      }finally{
+        setBusy($("btnReopen"), false);
+      }
+    });
+
+    $("btnSaveNote").addEventListener("click", async () => {
+      hideAlert($("processAlert"));
+      setBusy($("btnSaveNote"), true);
+      try{
+        const session = await getValidSession();
+        if(!session) throw new Error("Not signed in.");
+        const dataset = normalizeDataset($("procDataset").value);
+        const cfg = await loadConfig(session, dataset).catch(()=>null);
+        const period = getPeriod();
+        const dueAt = computeDueAt(period, cfg?.due_day ?? 5, cfg?.due_time ?? "17:00");
+        const note = ($("procNote").value || "").trim();
+        const run = await loadRun(session, dataset, period).catch(()=>null);
+        await upsertRun(session, dataset, period, dueAt, {
+          status: run?.status || "not_started",
+          note: note || null,
+          block_reason: run?.status === "blocked" ? (note || run?.block_reason || "Blocked") : (run?.block_reason || null),
+          started_at: run?.started_at || null,
+          uploaded_at: run?.uploaded_at || null,
+          approved_at: run?.approved_at || null,
+          last_upload_id: run?.last_upload_id || null,
+          last_uploaded_at: run?.last_uploaded_at || null
+        });
+        showAlert($("processAlert"), "Saved note.", true);
+      }catch(e){
+        showAlert($("processAlert"), e.message, false);
+      }finally{
+        setBusy($("btnSaveNote"), false);
+      }
+    });
+
+    $("btnClearBlocked").addEventListener("click", async () => {
+      hideAlert($("processAlert"));
+      setBusy($("btnClearBlocked"), true);
+      try{
+        const session = await getValidSession();
+        if(!session) throw new Error("Not signed in.");
+        const dataset = normalizeDataset($("procDataset").value);
+        const cfg = await loadConfig(session, dataset).catch(()=>null);
+        const period = getPeriod();
+        const dueAt = computeDueAt(period, cfg?.due_day ?? 5, cfg?.due_time ?? "17:00");
+        await upsertRun(session, dataset, period, dueAt, {
+          status: "in_progress",
+          block_reason: null
+        });
+        await renderProcess();
+        showAlert($("processAlert"), "Cleared blocked.", true);
+      }catch(e){
+        showAlert($("processAlert"), e.message, false);
+      }finally{
+        setBusy($("btnClearBlocked"), false);
+      }
+    });
+
+    // Setup controls
+    $("setupDataset").addEventListener("change", () => renderSetup());
+    ["dueDay","dueTime","reminderTime","requireApproval","rem7","rem2","rem1","rem0","overdueDaily"].forEach(id=>{
+      $(id).addEventListener("change", updateSetupPreview);
+      $(id).addEventListener("input", updateSetupPreview);
+    });
+
+    $("btnBackToProcess").addEventListener("click", () => renderProcess());
+
+    $("btnLoadSetup").addEventListener("click", async () => {
+      hideAlert($("setupAlert"));
+      setBusy($("btnLoadSetup"), true);
+      try{
+        await renderSetup();
+        showAlert($("setupAlert"), "Loaded.", true);
+      }catch(e){
+        showAlert($("setupAlert"), e.message, false);
+      }finally{
+        setBusy($("btnLoadSetup"), false);
+      }
+    });
+
+    $("btnSaveSetup").addEventListener("click", async () => {
+      hideAlert($("setupAlert"));
+      setBusy($("btnSaveSetup"), true);
+      try{
+        const session = await getValidSession();
+        if(!session) throw new Error("Not signed in.");
+        const dataset = normalizeDataset($("setupDataset").value || "Reporting_structure");
+        const cfg = getSetupForm();
+        await upsertConfig(session, dataset, cfg);
+        // Ensure run updated with current due_at (if run exists)
+        const period = getPeriod();
+        const dueAt = computeDueAt(period, cfg.due_day, cfg.due_time);
+        const run = await loadRun(session, dataset, period).catch(()=>null);
+        if(run){
+          await upsertRun(session, dataset, period, dueAt, {
+            status: run.status,
+            note: run.note || null,
+            block_reason: run.block_reason || null,
+            last_upload_id: run.last_upload_id || null,
+            last_uploaded_at: run.last_uploaded_at || null,
+            started_at: run.started_at || null,
+            uploaded_at: run.uploaded_at || null,
+            approved_at: run.approved_at || null
+          });
+        }
+        updateSetupPreview();
+        showAlert($("setupAlert"), "Saved setup.", true);
+      }catch(e){
+        showAlert($("setupAlert"), e.message, false);
+      }finally{
+        setBusy($("btnSaveSetup"), false);
+      }
+    });
+
+    // Upload controls
+    $("dataset").addEventListener("change", () => {
+      const ds = normalizeDataset($("dataset").value);
+      syncDatasetAcrossScreens(ds);
+    });
+
+    $("btnClear").addEventListener("click", () => {
+      hideAlert($("uploadAlert"));
+      setGrid([]);
+      showAlert($("uploadAlert"), "Cleared.", true);
+    });
+
+    $("btnCopyJson").addEventListener("click", async () => {
+      hideAlert($("uploadAlert"));
+      setBusy($("btnCopyJson"), true);
+      try{
+        const session = await getValidSession();
+        if(!session) throw new Error("Not signed in.");
+        const dataset = normalizeDataset($("dataset").value);
+        const latest = await getLatestUpload(session, dataset);
+        const rows = latest?.rows ?? [];
+        await navigator.clipboard.writeText(JSON.stringify(rows, null, 2));
+        showAlert($("uploadAlert"), "Copied latest JSON (same dataset) to clipboard.", true);
+      }catch(e){
+        showAlert($("uploadAlert"), e.message, false);
+      }finally{
+        setBusy($("btnCopyJson"), false);
+      }
+    });
+
+    $("btnLoadLatest").addEventListener("click", async () => {
+      hideAlert($("uploadAlert"));
+      setBusy($("btnLoadLatest"), true);
+      try{
+        const session = await getValidSession();
+        if(!session) throw new Error("Not signed in.");
+        const dataset = normalizeDataset($("dataset").value);
+        const latest = await getLatestUpload(session, dataset);
         if(!latest) throw new Error("No uploads found for this dataset.");
         setGrid(latest.rows || []);
-        showAlert(appAlert, "Loaded latest upload for dataset: " + dataset, true);
+        showAlert($("uploadAlert"), "Loaded latest upload for dataset: " + dataset, true);
       }catch(e){
-        showAlert(appAlert, e.message);
+        showAlert($("uploadAlert"), e.message, false);
       }finally{
-        setBusy(btn, false);
+        setBusy($("btnLoadLatest"), false);
       }
     });
 
-    document.getElementById("btnDownloadCsv").addEventListener("click", () => {
-      hideAlert(appAlert);
+    $("btnDownloadCsv").addEventListener("click", () => {
+      hideAlert($("uploadAlert"));
       const rows = gridToRows();
       const csv = rows.map(r => r.map(v => {
         const s = String(v ?? "");
@@ -770,53 +1708,77 @@
       const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = "grid.csv";
+      a.download = `${normalizeDataset($("dataset").value || "grid")}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();
+      showAlert($("uploadAlert"), "CSV downloaded.", true);
     });
 
-    document.getElementById("btnSave").addEventListener("click", async () => {
-      hideAlert(appAlert);
-      const btn = document.getElementById("btnSave");
-      setBusy(btn, true);
+    $("btnSave").addEventListener("click", async () => {
+      hideAlert($("uploadAlert"));
+      setBusy($("btnSave"), true);
       try{
         const session = await getValidSession();
         if(!session) throw new Error("Not signed in.");
-        const dataset = normalizeDataset(document.getElementById("dataset").value);
-        const overwrite = document.getElementById("overwrite").checked;
+
+        const dataset = normalizeDataset($("dataset").value);
+        const period = getPeriod();
+        const overwrite = $("overwrite").checked;
+
         const rows = gridToRows();
         if(!rows.length) throw new Error("Grid is empty.");
 
         if(overwrite){
-          const latest = await getLatestRowId(session, dataset);
-          if(latest?.id){
-            await deleteRowById(session, latest.id);
-          }
+          const latest = await getLatestUpload(session, dataset);
+          if(latest?.id) await deleteUploadById(session, latest.id);
         }
-        await insertRows(session, dataset, rows);
-        showAlert(appAlert, overwrite ? "Saved (overwrite mode: replaced latest for this dataset)." : "Saved.", true);
+        const inserted = await insertUpload(session, dataset, period, rows);
+
+        // Update process run status for this month
+        const cfg = await loadConfig(session, dataset).catch(()=>null);
+        const dueAt = computeDueAt(period, cfg?.due_day ?? 5, cfg?.due_time ?? "17:00");
+        const requireApproval = (cfg?.require_approval ?? true);
+        const status = requireApproval ? "uploaded" : "approved";
+        const nowIso = new Date().toISOString();
+        await upsertRun(session, dataset, period, dueAt, {
+          status,
+          last_upload_id: inserted?.id || null,
+          last_uploaded_at: inserted?.created_at || nowIso,
+          uploaded_at: nowIso,
+          started_at: nowIso
+        });
+
+        showAlert($("uploadAlert"), overwrite ? "Saved (overwrite mode: replaced latest for this dataset)." : "Saved.", true);
       }catch(e){
-        showAlert(appAlert, e.message);
+        showAlert($("uploadAlert"), e.message, false);
       }finally{
-        setBusy(btn, false);
+        setBusy($("btnSave"), false);
       }
     });
 
-    /************************************************************
-     * Boot
-     ************************************************************/
-    (function init(){
-      // Basic sanity check for config
-      if(!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes("PASTE_YOUR_ANON_KEY_HERE")){
-        showAlert(authAlert, "Set your SUPABASE_ANON_KEY in the HTML, then reload.");
-      }
-      // Resume session if present
-      const s = loadSession();
-      if(s && s.user){
-        showApp(s);
-      }else{
-        showAuth();
+    // Nav defaults
+    $("navProcess").classList.add("active");
+
+    // Dataset defaults
+    syncDatasetAcrossScreens("Reporting_structure");
+    $("dueDay").value = 5;
+    $("dueTime").value = "17:00";
+    $("reminderTime").value = "09:00";
+
+    // Boot
+    (async function init(){
+      try{
+        const session = await getValidSession();
+        if(session){
+          setSignedInUI(session);
+          await renderProcess();
+        } else {
+          await bootSignedOut();
+        }
+      }catch(e){
+        await bootSignedOut();
+        showAlert($("authAlert"), e.message, false);
       }
     })();
   </script>
